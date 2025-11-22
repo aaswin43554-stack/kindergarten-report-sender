@@ -4,12 +4,12 @@ import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 
 function App() {
-  const isLoggedIn = localStorage.getItem("loggedIn") === "true";
+  const [isLoggedIn, setIsLoggedIn] = React.useState(localStorage.getItem("loggedIn") === "true");
 
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Login />} />
+        <Route path="/" element={<Login setIsLoggedIn={setIsLoggedIn} />} />
         <Route
           path="/dashboard"
           element={isLoggedIn ? <Dashboard /> : <Navigate to="/" />}
