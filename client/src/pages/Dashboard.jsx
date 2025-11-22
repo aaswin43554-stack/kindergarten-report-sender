@@ -15,7 +15,7 @@ const Dashboard = () => {
     setLogs([]);
     setIsSending(true);
 
-    const eventSource = new EventSource("http://localhost:3000/send");
+    const eventSource = new EventSource("/send");
 
     eventSource.onmessage = (event) => {
       if (event.data === "[DONE]") {
@@ -41,7 +41,7 @@ const Dashboard = () => {
     setLogs([]);
     setIsSending(true);
 
-    const eventSource = new EventSource("http://localhost:3000/send-menu");
+    const eventSource = new EventSource("/send-menu");
 
     eventSource.onmessage = (event) => {
       if (event.data === "[DONE]") {
@@ -66,7 +66,7 @@ const Dashboard = () => {
   const fetchStudentStatus = async () => {
     setLogs((prev) => [...prev, "📊 Fetching student report status..."]);
     try {
-      const response = await fetch("http://localhost:3000/student-status");
+      const response = await fetch("/student-status");
       const data = await response.json();
 
       if (data.message) {
