@@ -24,10 +24,24 @@ const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TO
 // =======================================================
 // GOOGLE SHEETS CONFIGURATION
 // =======================================================
-const auth = new google.auth.GoogleAuth({
-  keyFile: "credentials.json", // service account key file
-  scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
-});
+import fs from "fs";
+
+let auth;
+if (fs.existsSync("credentials.json")) {
+  auth = new google.auth.GoogleAuth({
+    keyFile: "credentials.json",
+    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+  });
+} else {
+  auth = new google.auth.GoogleAuth({
+    credentials: {
+      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    },
+    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+  });
+}
+
 const sheets = google.sheets({ version: "v4", auth });
 
 // =======================================================
