@@ -28,15 +28,31 @@ import fs from "fs";
 
 let auth;
 if (fs.existsSync("credentials.json")) {
+  console.log("✅ Found credentials.json, using file for Google Auth.");
   auth = new google.auth.GoogleAuth({
     keyFile: "credentials.json",
     scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
   });
 } else {
+  console.log("⚠️ credentials.json not found, attempting to use Environment Variables.");
+
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  const key = process.env.GOOGLE_PRIVATE_KEY;
+
+  if (!email || !key) {
+    console.error("❌ MISSING GOOGLE AUTH ENV VARIABLES!");
+    console.error("GOOGLE_SERVICE_ACCOUNT_EMAIL:", email ? "Set" : "Missing");
+    console.error("GOOGLE_PRIVATE_KEY:", key ? "Set" : "Missing");
+  } else {
+    console.log("✅ Environment variables found. Configuring Google Auth...");
+    console.log(`📧 Email: ${email}`);
+    console.log(`🔑 Key length: ${key.length} chars`);
+  }
+
   auth = new google.auth.GoogleAuth({
     credentials: {
-      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+      client_email: email,
+      private_key: key?.replace(/\\n/g, "\n"),
     },
     scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
   });

@@ -211,6 +211,41 @@ h1, h2, h3, p {
 }
 
 /* =========================================
+   TABS
+========================================= */
+.tabs {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+  padding-bottom: 1rem;
+}
+
+.tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-radius: var(--radius-sm);
+}
+
+.tab-btn:hover {
+  color: var(--primary-color);
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.tab-btn.active {
+  color: var(--primary-color);
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* =========================================
    BUTTONS & CONTROLS
 ========================================= */
 .button-section {

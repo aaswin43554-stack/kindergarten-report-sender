@@ -6,6 +6,7 @@ import "../styles.css";
 const Dashboard = () => {
   const [logs, setLogs] = useState([]);
   const [isSending, setIsSending] = useState(false);
+  const [activeTab, setActiveTab] = useState("daily"); // Default tab
   const navigate = useNavigate();
 
   // --------------------------------------------------
@@ -105,31 +106,60 @@ const Dashboard = () => {
         <h2>🎓 Kindergarten Teacher Dashboard</h2>
         <p>Click below to send WhatsApp updates to parents.</p>
 
+        {/* TABS NAVIGATION */}
+        <div className="tabs">
+          <button
+            className={`tab-btn ${activeTab === "daily" ? "active" : ""}`}
+            onClick={() => setActiveTab("daily")}
+          >
+            Daily Reports
+          </button>
+          <button
+            className={`tab-btn ${activeTab === "menu" ? "active" : ""}`}
+            onClick={() => setActiveTab("menu")}
+          >
+            Weekly Menu
+          </button>
+          <button
+            className={`tab-btn ${activeTab === "status" ? "active" : ""}`}
+            onClick={() => setActiveTab("status")}
+          >
+            Student Status
+          </button>
+        </div>
+
+        {/* ACTION BUTTONS */}
         <div className="button-section">
-          <button
-            className="send-btn"
-            onClick={sendMessages}
-            disabled={isSending}
-          >
-            {isSending ? "📨 Sending Daily Reports..." : "🚀 Send Daily Reports"}
-          </button>
+          {activeTab === "daily" && (
+            <button
+              className="send-btn"
+              onClick={sendMessages}
+              disabled={isSending}
+            >
+              {isSending ? "📨 Sending Daily Reports..." : "🚀 Send Daily Reports"}
+            </button>
+          )}
 
-          <button
-            className="send-btn"
-            onClick={sendWeeklyMenu}
-            disabled={isSending}
-          >
-            {isSending ? "🍱 Sending Weekly Menu..." : "📆 Send Weekly Menu"}
-          </button>
+          {activeTab === "menu" && (
+            <button
+              className="send-btn"
+              onClick={sendWeeklyMenu}
+              disabled={isSending}
+            >
+              {isSending ? "🍱 Sending Weekly Menu..." : "📆 Send Weekly Menu"}
+            </button>
+          )}
 
-          <button
-            className="send-btn"
-            style={{ background: "#8b5cf6" }} // Violet color for distinction
-            onClick={fetchStudentStatus}
-            disabled={isSending}
-          >
-            📊 Student Report Status
-          </button>
+          {activeTab === "status" && (
+            <button
+              className="send-btn"
+              style={{ background: "#8b5cf6" }} // Violet color for distinction
+              onClick={fetchStudentStatus}
+              disabled={isSending}
+            >
+              📊 Student Report Status
+            </button>
+          )}
 
           <button className="clear-btn" onClick={clearLogs}>
             🧹 Clear Logs
