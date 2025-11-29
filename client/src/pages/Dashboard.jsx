@@ -280,16 +280,13 @@ const Dashboard = () => {
 
             {teacherReport && teacherReport.output && (
               <>
-                  {/* WRAPPING BOTH THE HEADER AND THE CONTENT IN THE STYLED DIV */}
-                  <div className="report-box" style={REPORT_BOX_STYLE}>
-                    <h3>✅ Generated Teacher Report Data:</h3>
-                    <div 
-                        // WARNING: Using dangerouslySetInnerHTML is required here to render Markdown
-                        dangerouslySetInnerHTML={{ __html: renderMarkdownAsHtml(teacherReport.output) }} 
-                        // CRITICAL: Prevent the h3 margin from pushing the border down
-                        style={{ marginTop: '-15px', paddingBottom: '5px' }} 
-                    />
-                  </div>
+                  {/* Final combined container with inline styling for the box effect */}
+                  <div 
+                      className="report-box" 
+                      style={REPORT_BOX_STYLE}
+                      // Render the formatted HTML inside the box
+                      dangerouslySetInnerHTML={{ __html: renderMarkdownAsHtml("✅ Generated Teacher Report Data:<br/>" + teacherReport.output) }} 
+                  />
                   </>
                 )}
               </div>
