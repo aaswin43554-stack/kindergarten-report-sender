@@ -5,6 +5,28 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar.jsx";
 import "../styles.css";
 
+// --------------------------------------------------
+// NEW HELPER FUNCTION: Convert Markdown to HTML for display
+// (This handles basic Markdown like the student report uses)
+// --------------------------------------------------
+const renderMarkdownAsHtml = (markdownText) => {
+    if (!markdownText) return '';
+    
+    // Convert newlines to breaks
+    let html = markdownText.replace(/\n/g, '<br/>');
+    
+    // Convert **Bold Text** to <strong>Bold Text</strong>
+    html = html.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
+    
+    // Convert ## Header to <h2>Header</h2>
+    html = html.replace(/##\s*([^<]+)/g, '<h2>$1</h2>');
+
+    // Convert --- (horizontal rules)
+    html = html.replace(/---\s*<br\/>/g, '<hr>');
+
+    return html;
+};
+
 const Dashboard = () => {
   // Existing state
   const [logs, setLogs] = useState([]);
@@ -212,8 +234,8 @@ const Dashboard = () => {
               📊 Student Report Status
             </button>
           )}
-          
-          {/* NEW AI REPORT BUTTON */}
+          
+          {/* NEW AI REPORT BUTTON */}
           {activeTab === "ai" && (
             <button 
               className="send-btn" 
@@ -229,34 +251,32 @@ const Dashboard = () => {
             🧹 Clear Logs
           </button>
         </div>
-        
-        {/* NEW AI REPORT DISPLAY SECTION */}
-        {activeTab === "ai" && (
-          <div className="ai-report-display">
-            {isProcessingAI && (
-              <p className="yellow">⏳ AI Analysis in progress. This may take a moment...</p>
-            )}
-            
-            {aiError && (
-              <p className="red">❌ AI Report Error: {aiError}</p>
-            )}
+        
+        {/* NEW AI REPORT DISPLAY SECTION */}
+        {activeTab === "ai" && (
+          <div className="ai-report-display">
+            {isProcessingAI && (
+              <p className="yellow">⏳ AI Analysis in progress. This may take a moment...</p>
+            )}
+            
+            {aiError && (
+              <p className="red">❌ AI Report Error: {aiError}</p>
+            )}
 
-            {teacherReport && (
-              <>
-                <h3>✅ Generated Teacher Report Data:</h3>
-                <div style={{ maxHeight: '300px', overflowY: 'scroll', backgroundColor: '#f9f9f9', padding: '10px', border: '1px solid #ddd' }}>
-                  {/* Since we don't know the exact structure, we display the raw JSON */}
-                  <pre>{JSON.stringify(teacherReport, null, 2)}</pre>
-                </div>
-                {/* To fully replicate the "Student Report Section," you would replace the <pre> tag
-                    with a dedicated component to format the data: 
-                    <TeacherReportDisplay data={teacherReport} />
-                */}
-              </>
-            )}
-          </div>
-        )}
-        {/* END NEW AI REPORT DISPLAY SECTION */}
+            {teacherReport && teacherReport.output && (
+              <>
+                <h3>✅ Generated Teacher Report Data:</h3>
+                <div 
+                    // This div is to provide the container look similar to the student report box
+                    className="report-box" 
+                    // WARNING: Using dangerouslySetInnerHTML is required here to render Markdown
+                    dangerouslySetInnerHTML={{ __html: renderMarkdownAsHtml(teacherReport.output) }} 
+                />
+              </>
+            )}
+          </div>
+        )}
+        {/* END NEW AI REPORT DISPLAY SECTION */}
 
 
         <div className="log-box">
