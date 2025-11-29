@@ -10,21 +10,36 @@ import "../styles.css";
 // (This handles basic Markdown like the student report uses)
 // --------------------------------------------------
 const renderMarkdownAsHtml = (markdownText) => {
-    if (!markdownText) return '';
-    
-    // Convert newlines to breaks
-    let html = markdownText.replace(/\n/g, '<br/>');
-    
-    // Convert **Bold Text** to <strong>Bold Text</strong>
-    html = html.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
-    
-    // Convert ## Header to <h2>Header</h2>
-    html = html.replace(/##\s*([^<]+)/g, '<h2>$1</h2>');
+    if (!markdownText) return '';
+    
+    // Convert newlines to breaks
+    let html = markdownText.replace(/\n/g, '<br/>');
+    
+    // Convert **Bold Text** to <strong>Bold Text</strong>
+    html = html.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
+    
+    // Convert ## Header to <h2>Header</h2>
+    html = html.replace(/##\s*([^<]+)/g, '<h2>$1</h2>');
 
-    // Convert --- (horizontal rules)
-    html = html.replace(/---\s*<br\/>/g, '<hr>');
+    // Convert --- (horizontal rules)
+    html = html.replace(/---\s*<br\/>/g, '<hr>');
 
-    return html;
+    return html;
+};
+
+// --------------------------------------------------
+// INLINE STYLE FOR THE REPORT BOX (Simulating the Student Status Box)
+// --------------------------------------------------
+const REPORT_BOX_STYLE = {
+    // These styles create the visible box container
+    backgroundColor: 'white', 
+    border: '1px solid #e0e0e0',
+    borderRadius: '8px',
+    padding: '15px', // CRITICAL: Gives space inside the box
+    marginTop: '20px',
+    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.05)', // Adds a slight shadow for depth
+    wordBreak: 'break-word',
+    overflowWrap: 'break-word',
 };
 
 const Dashboard = () => {
@@ -265,39 +280,42 @@ const Dashboard = () => {
 
             {teacherReport && teacherReport.output && (
               <>
-                <h3>✅ Generated Teacher Report Data:</h3>
-                <div 
-                    // This div is to provide the container look similar to the student report box
-                    className="report-box" 
-                    // WARNING: Using dangerouslySetInnerHTML is required here to render Markdown
-                    dangerouslySetInnerHTML={{ __html: renderMarkdownAsHtml(teacherReport.output) }} 
-                />
-              </>
-            )}
-          </div>
-        )}
-        {/* END NEW AI REPORT DISPLAY SECTION */}
+                  {/* WRAPPING BOTH THE HEADER AND THE CONTENT IN THE STYLED DIV */}
+                  <div className="report-box" style={REPORT_BOX_STYLE}>
+                    <h3>✅ Generated Teacher Report Data:</h3>
+                    <div 
+                        // WARNING: Using dangerouslySetInnerHTML is required here to render Markdown
+                        dangerouslySetInnerHTML={{ __html: renderMarkdownAsHtml(teacherReport.output) }} 
+                        // CRITICAL: Prevent the h3 margin from pushing the border down
+                        style={{ marginTop: '-15px', paddingBottom: '5px' }} 
+                    />
+                  </div>
+                  </>
+                )}
+              </div>
+            )}
+            {/* END NEW AI REPORT DISPLAY SECTION */}
 
 
-        <div className="log-box">
-          {logs.length === 0 ? (
-            <p className="muted">🕒 No logs yet. Click a button to start.</p>
-          ) : (
-            logs.map((log, i) => {
-              let colorClass = "";
-              if (log.includes("✅")) colorClass = "green";
-              else if (log.includes("⚠️")) colorClass = "yellow";
-              else if (log.includes("❌")) colorClass = "red";
-              return (
-                <p key={i} className={colorClass}>
-                  {log}
-                </p>
-              );
-            })
-          )}
-        </div>
-      </div>
-    </div>
+            <div className="log-box">
+              {logs.length === 0 ? (
+                <p className="muted">🕒 No logs yet. Click a button to start.</p>
+              ) : (
+                logs.map((log, i) => {
+                  let colorClass = "";
+                  if (log.includes("✅")) colorClass = "green";
+                  else if (log.includes("⚠️")) colorClass = "yellow";
+                  else if (log.includes("❌")) colorClass = "red";
+                  return (
+                    <p key={i} className={colorClass}>
+                      {log}
+                    </p>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
   );
 };
 
