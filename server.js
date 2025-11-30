@@ -294,7 +294,46 @@ app.post('/api/teacher-analysis-report', async (req, res) => {
         });
     }
 });
+// ... in your server.js file ...
 
+// =======================================================
+// ROUTE: GET STUDENT REPORT STATUS (VIA N8N)
+// =======================================================
+app.get("/student-status", async (req, res) => {
+    const n8n_webhook_url = process.env.N8N_STUDENT_REPORT_WEBHOOK_URL; 
+    
+    if (!n8n_webhook_url) {
+        return res.status(500).json({ message: 'N8N Student Webhook URL is not configured.' });
+    }
+
+    try {
+        console.log('Triggering n8n workflow for Student Status (Module 2)...');
+        
+        // IMPORTANT: Using GET because the frontend's fetch("/student-status") defaults to GET.
+        const n8nResponse = await fetch(n8n_webhook_url, { 
+            method: 'GET', 
+        });
+
+        if (!n8nResponse.ok) {
+            const errorText = await n8nResponse.text(); 
+            console.error(`n8n Student workflow failed: ${errorText}`);
+            // Ensure we return a structured message to prevent frontend crash
+            return res.status(500).json({ message: `❌ n8n Status Error: ${n8nResponse.status}` });
+        }
+
+        // n8n returns the final JSON message with the report content, 
+        // which the frontend expects as { "message": "..." }
+        const reportData = await n8nResponse.json(); 
+
+        // Send the result back to the frontend.
+        res.status(200).json(reportData);
+        
+    } catch (error) {
+        console.error("Server Error fetching student status via n8n:", error);
+        res.status(500).json({ message: `❌ Server Error fetching student status: ${error.message}` });
+    }
+});
+// ...
 
 // =======================================================
 // SERVE FRONTEND (OPTIONAL BUILD SUPPORT)
