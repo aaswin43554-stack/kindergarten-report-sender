@@ -13,7 +13,7 @@
   },
   "scripts": {
     "start": "node server.js",
-    // ADD or REPLACE this line:
+  
     "build": "cd client && npm install && npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
