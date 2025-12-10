@@ -9,8 +9,8 @@ export default defineConfig({
       "/send": "http://localhost:3000",
       "/send-menu": "http://localhost:3000",
       "/student-status": "http://localhost:3000",
-      "/api": "http://localhost:3000",        // <— needed for AI report
-      "/teacher": "http://localhost:3000",    // safety for future
+      "/api": "http://localhost:3000",          // all backend API routes
+      "/teacher": "http://localhost:3000",
     },
   },
 });

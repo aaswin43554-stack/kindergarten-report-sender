@@ -50,210 +50,152 @@ if (fs.existsSync("credentials.json")) {
 const sheets = google.sheets({ version: "v4", auth });
 
 // =======================================================
-// ROUTE: GET STUDENT STATUS (N8N MODULE 2)
+// ROUTE: GET STUDENT STATUS (MODULE 2)
 // =======================================================
 app.get("/student-status", async (req, res) => {
-    const webhook = process.env.N8N_STUDENT_REPORT_WEBHOOK_URL;
-
-    if (!webhook) {
-        console.error("❌ Missing N8N_STUDENT_REPORT_WEBHOOK_URL in .env");
-        return res.status(500).json({ message: "Webhook URL missing." });
-    }
-
-    console.log("📡 Calling n8n student-status URL:", webhook);
-
     try {
-        const response = await fetch(webhook, { method: "GET" });
+        const webhook = process.env.N8N_STUDENT_REPORT_WEBHOOK_URL;
+        const resp = await fetch(webhook);
+        const text = await resp.text();
 
-        console.log("📥 n8n status code:", response.status);
-
-        const text = await response.text();
-        console.log("📦 n8n raw response:", text);
-
-        let json;
         try {
-            json = JSON.parse(text);
+            return res.json(JSON.parse(text));
         } catch {
-            console.log("⚠️ Response is not JSON.");
-            return res.status(500).json({ message: "Invalid JSON from n8n", raw: text });
+            return res.json({ raw: text });
         }
-
-        return res.status(200).json(json);
     } catch (err) {
-        console.error("❌ Error calling n8n:", err.message);
-        return res.status(500).json({ message: "Server error", details: err.message });
+        return res.status(500).json({ error: err.message });
     }
 });
 
 // =======================================================
-// ROUTE: SEND DAILY REPORTS (SSE STREAM)
+// ROUTE: SEND DAILY REPORTS
 // =======================================================
 app.get("/send", async (req, res) => {
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
-    const sendLog = (msg) => res.write(`data: ${msg}\n\n`);
+    const log = (msg) => res.write(`data: ${msg}\n\n`);
 
     try {
-        sendLog("📊 Fetching data from Google Sheet...");
+        log("📊 Fetching sheet data...");
         const result = await sheets.spreadsheets.values.get({
             spreadsheetId: process.env.SHEET_ID,
             range: "Daily Report!A2:H",
         });
 
         const rows = result.data.values || [];
-        if (rows.length === 0) {
-            sendLog("⚠️ No data found in Google Sheet.");
-            return res.end();
-        }
-
-        sendLog(`✅ Found ${rows.length} rows.`);
+        log(`Found ${rows.length} rows`);
 
         for (const row of rows) {
-            const [studentName, appetite, sleeping, behaviour, mood, note, phone, messageFromSheet] = row;
+            const [name, appetite, sleep, behavior, mood, note, phone] = row;
 
             if (!phone) {
-                sendLog(`⚠️ Skipping ${studentName} (no phone)`);
+                log(`Skipping ${name} (no phone)`);
                 continue;
             }
 
-            const message = messageFromSheet || `
-🌞 Good evening parent!
-
-Daily report for ${studentName}:
+            const msg = `
+Daily report for ${name}
 
 🍽 Appetite: ${appetite}
-😴 Sleeping: ${sleeping}
-😊 Behaviour: ${behaviour}
+😴 Sleep: ${sleep}
+😊 Behavior: ${behavior}
 🎭 Mood: ${mood}
 📝 Note: ${note}
-
-Regards,
-Kindergarten Team
 `;
 
-            sendLog(`➡️ Sending message to ${phone}...`);
+            await client.messages.create({
+                from: process.env.TWILIO_WHATSAPP_FROM,
+                to: `whatsapp:${phone}`,
+                body: msg,
+            });
 
-            try {
-                await client.messages.create({
-                    from: process.env.TWILIO_WHATSAPP_FROM,
-                    to: `whatsapp:${phone}`,
-                    body: message,
-                });
-
-                sendLog(`✅ Sent to ${phone}`);
-            } catch (err) {
-                sendLog(`❌ Failed: ${err.message}`);
-            }
+            log(`Sent to ${phone}`);
         }
 
-        sendLog("🎉 All messages sent!");
-        sendLog("[DONE]");
+        log("[DONE]");
         res.end();
-    } catch (error) {
-        sendLog(`❌ Error: ${error.message}`);
-        sendLog("[DONE]");
+    } catch (err) {
+        log(`ERROR: ${err.message}`);
         res.end();
     }
 });
 
 // =======================================================
-// ROUTE: SEND WEEKLY MENU (SSE)
+// ROUTE: SEND WEEKLY MENU
 // =======================================================
 app.get("/send-menu", async (req, res) => {
     res.setHeader("Content-Type", "text/event-stream");
-
-    const sendLog = (msg) => res.write(`data: ${msg}\n\n`);
+    const log = (msg) => res.write(`data: ${msg}\n\n`);
 
     try {
-        sendLog("🍱 Fetching weekly menu...");
-
         const result = await sheets.spreadsheets.values.get({
             spreadsheetId: process.env.SHEET_ID,
             range: "WeeklyMenu!A2:C",
         });
 
         const rows = result.data.values || [];
-
-        if (rows.length === 0) {
-            sendLog("⚠️ No menu data found.");
-            return res.end();
-        }
-
         let menu = "*🍽 Weekly Menu 🍽*\n\n";
-        for (const row of rows) {
-            const [day, food] = row;
-            menu += `• ${day}: ${food}\n`;
+
+        for (const r of rows) {
+            menu += `• ${r[0]}: ${r[1]}\n`;
         }
 
         const phones = [...new Set(rows.map((r) => r[2]).filter(Boolean))];
 
-        for (const phone of phones) {
-            sendLog(`➡️ Sending menu to ${phone}...`);
-            try {
-                await client.messages.create({
-                    from: process.env.TWILIO_WHATSAPP_FROM,
-                    to: `whatsapp:${phone}`,
-                    body: menu,
-                });
-
-                sendLog(`✅ Menu sent to ${phone}`);
-            } catch (err) {
-                sendLog(`❌ Failed: ${err.message}`);
-            }
+        for (const p of phones) {
+            await client.messages.create({
+                from: process.env.TWILIO_WHATSAPP_FROM,
+                to: `whatsapp:${p}`,
+                body: menu,
+            });
+            log(`Menu sent to ${p}`);
         }
 
-        sendLog("🎉 Menu sent!");
-        sendLog("[DONE]");
+        log("[DONE]");
         res.end();
-    } catch (error) {
-        sendLog(`❌ Error: ${error.message}`);
+    } catch (e) {
+        log(`ERROR: ${e.message}`);
         res.end();
     }
 });
 
 // =======================================================
-// ROUTE: AI TEACHER ANALYSIS (N8N MODULE 3)
+// ROUTE: AI TEACHER ANALYSIS TEXT REPORT
 // =======================================================
 app.post("/api/teacher-analysis-report", async (req, res) => {
-    const webhook = process.env.N8N_TEACHER_REPORT_WEBHOOK_URL;
-
-    if (!webhook) {
-        console.error("❌ Missing N8N_TEACHER_REPORT_WEBHOOK_URL");
-        return res.status(500).json({ error: "Webhook not configured" });
-    }
-
     try {
+        const webhook = process.env.N8N_TEACHER_REPORT_WEBHOOK_URL;
         const response = await fetch(webhook, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(req.body),
         });
 
-        if (!response.ok) {
-            const txt = await response.text();
-            return res.status(500).json({ error: "n8n error", raw: txt });
-        }
-
         const json = await response.json();
-        return res.status(200).json(json);
-    } catch (error) {
-        return res.status(500).json({ error: error.message });
+        return res.json(json);
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
     }
 });
 
 // =======================================================
-// NOTE: FRONTEND SERVING DISABLED FOR DEVELOPMENT
-// DO NOT ENABLE THIS UNTIL PRODUCTION BUILD
+// ROUTE: TEACHER VISUAL CHART DATA
 // =======================================================
-// ❌ THIS BREAKS VITE PROXY DURING DEVELOPMENT
-//
-// const distPath = path.join(__dirname, "client", "dist");
-// app.use(express.static(distPath));
-// app.get("*", (req, res) => {
-//   res.sendFile(path.join(distPath, "index.html"));
-// });
+app.get("/api/teacher-visual", async (req, res) => {
+    try {
+        const webhook = process.env.N8N_TEACHER_VISUAL_URL;
+
+        const response = await fetch(webhook);
+        const json = await response.json();
+
+        return res.json(json);
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+});
 
 // =======================================================
 // START SERVER
@@ -261,5 +203,5 @@ app.post("/api/teacher-analysis-report", async (req, res) => {
 const PORT = 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Backend running at: http://localhost:${PORT}`);
-    console.log(`✨ Student Status ready at /student-status`);
+    console.log(`✨ /api/teacher-visual ready`);
 });

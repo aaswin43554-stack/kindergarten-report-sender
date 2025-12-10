@@ -1,336 +1,346 @@
 // client/src/pages/Dashboard.jsx
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar.jsx";
+import * as echarts from "echarts";
 import "../styles.css";
 
-// --------------------------------------------------
-// NEW HELPER FUNCTION: Convert Markdown to HTML for display
-// (This handles basic Markdown like the student report uses)
-// --------------------------------------------------
+// Markdown → HTML
 const renderMarkdownAsHtml = (markdownText) => {
-    if (!markdownText) return '';
-
-    // Convert newlines to breaks
-    let html = markdownText.replace(/\n/g, '<br/>');
-
-    // Convert **Bold Text** to <strong>Bold Text</strong>
-    html = html.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
-
-    // Convert ## Header to <h2>Header</h2>
-    html = html.replace(/##\s*([^<]+)/g, '<h2>$1</h2>');
-
-    // Convert --- (horizontal rules)
-    html = html.replace(/---\s*<br\/>/g, '<hr>');
-
+    if (!markdownText) return "";
+    let html = markdownText.replace(/\n/g, "<br/>");
+    html = html.replace(/\*\*([^\*]+)\*\*/g, "<strong>$1</strong>");
     return html;
 };
 
-// --------------------------------------------------
-// INLINE STYLE FOR THE REPORT BOX (Simulating the Student Status Box)
-// --------------------------------------------------
 const REPORT_BOX_STYLE = {
-    // These styles create the visible box container
-    backgroundColor: 'white',
-    border: '1px solid #e0e0e0',
-    borderRadius: '8px',
-    padding: '15px', // CRITICAL: Gives space inside the box
-    marginTop: '20px',
-    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.05)', // Adds a slight shadow for depth
-    wordBreak: 'break-word',
-    overflowWrap: 'break-word',
+    backgroundColor: "white",
+    border: "1px solid #e0e0e0",
+    borderRadius: "8px",
+    padding: "20px",
+    marginTop: "25px",
+    boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+    wordBreak: "break-word",
 };
 
 const Dashboard = () => {
-    // Existing state
-    const [logs, setLogs] = useState([]);
-    const [isSending, setIsSending] = useState(false);
-    const [activeTab, setActiveTab] = useState("daily"); // Default tab
     const navigate = useNavigate();
 
-    // NEW STATE for the Teacher Report data
+    const [logs, setLogs] = useState([]);
+    const [isSending, setIsSending] = useState(false);
+
+    const [activeTab, setActiveTab] = useState("daily");
+
     const [teacherReport, setTeacherReport] = useState(null);
+    const [visualData, setVisualData] = useState(null);
     const [isProcessingAI, setIsProcessingAI] = useState(false);
-    const [aiError, setAiError] = useState(null);
 
-    // --------------------------------------------------
-    // FUNCTION: SEND DAILY REPORTS (Existing)
-    // --------------------------------------------------
-    const sendMessages = () => {
-        setLogs([]);
+    // Chart refs
+    const radarChartRef = useRef(null);
+    const barChartRef = useRef(null);
+    const lineChartRef = useRef(null);
+
+    // ---------------------------
+    // DAILY REPORTS (existing)
+    // ---------------------------
+    const sendDaily = () => {
         setIsSending(true);
+        const es = new EventSource("/send");
 
-        const eventSource = new EventSource("/send");
-
-        eventSource.onmessage = (event) => {
-            if (event.data === "[DONE]") {
-                eventSource.close();
+        es.onmessage = (e) => {
+            if (e.data === "[DONE]") {
+                es.close();
                 setIsSending(false);
                 return;
             }
-            setLogs((prev) => [...prev, event.data]);
-        };
-
-        eventSource.onerror = (err) => {
-            console.error("❌ SSE error:", err);
-            setLogs((prev) => [...prev, "❌ Connection error."]);
-            setIsSending(false);
-            eventSource.close();
+            setLogs((prev) => [...prev, e.data]);
         };
     };
 
-    // --------------------------------------------------
-    // FUNCTION: SEND WEEKLY MENU (Existing)
-    // --------------------------------------------------
-    const sendWeeklyMenu = () => {
-        setLogs([]);
+    // ---------------------------
+    // WEEKLY MENU
+    // ---------------------------
+    const sendMenu = () => {
         setIsSending(true);
+        const es = new EventSource("/send-menu");
 
-        const eventSource = new EventSource("/send-menu");
-
-        eventSource.onmessage = (event) => {
-            if (event.data === "[DONE]") {
-                eventSource.close();
+        es.onmessage = (e) => {
+            if (e.data === "[DONE]") {
+                es.close();
                 setIsSending(false);
                 return;
             }
-            setLogs((prev) => [...prev, event.data]);
-        };
-
-        eventSource.onerror = (err) => {
-            console.error("❌ SSE error:", err);
-            setLogs((prev) => [...prev, "❌ Connection error."]);
-            setIsSending(false);
-            eventSource.close();
+            setLogs((prev) => [...prev, e.data]);
         };
     };
 
-    // --------------------------------------------------
-    // FUNCTION: FETCH STUDENT REPORT STATUS (Existing)
-    // --------------------------------------------------
-    const fetchStudentStatus = async () => {
-        console.log("📡 Starting Student Status request...");
+    // ---------------------------
+    // STUDENT STATUS
+    // ---------------------------
+    const fetchStatus = async () => {
+        const res = await fetch("/student-status");
+        const json = await res.json();
+        setLogs((prev) => [...prev, "📊 Student Status:", JSON.stringify(json)]);
+    };
 
-        setLogs((prev) => [...prev, "📡 Connecting to n8n for Student Status..."]);
-
+    // ---------------------------
+    // FETCH VISUAL DATA
+    // ---------------------------
+    const fetchVisualData = async () => {
         try {
-            console.log("➡️ Calling backend route: /student-status");
+            const response = await fetch("/api/teacher-visual");
+            const rawText = await response.text();
 
-            const response = await fetch("/student-status");
+            console.log("📩 RAW response from backend:", rawText);
 
-            console.log("📥 Response received from backend:", response);
-
-            if (!response.ok) {
-                console.log("❌ Backend returned error status:", response.status);
-                setLogs((prev) => [...prev, `❌ Server Error: ${response.status}`]);
+            let raw;
+            try {
+                raw = JSON.parse(rawText);
+            } catch (err) {
+                console.error("❌ JSON parse failed:", err);
                 return;
             }
 
-            const data = await response.json();
+            console.log("📊 Parsed JSON:", raw);
 
-            console.log("📦 Parsed JSON from backend:", data);
+            const teachers = raw?.[0]?.teachers;
 
-            if (data && data.message) {
-                console.log("✅ n8n returned message:", data.message);
-                setLogs((prev) => [...prev, "✅ Student Status Received!"]);
-                setLogs((prev) => [...prev, data.message]);
-            } else {
-                console.log("⚠️ n8n returned no message field:", data);
-                setLogs((prev) => [...prev, "⚠️ No status found from n8n."]);
+            if (!Array.isArray(teachers)) {
+                console.error("❌ visualData missing or wrong shape:", raw);
+                return;
             }
 
-        } catch (error) {
-            console.error("❌ Student Status Exception:", error);
-            setLogs((prev) => [...prev, "❌ Error fetching student status."]);
+            console.log("🎯 Setting visualData:", teachers);
+            setVisualData(teachers);
+        } catch (err) {
+            console.error("❌ Visual Fetch Error:", err);
         }
     };
 
 
-    // --------------------------------------------------
-    // NEW FUNCTION: TRIGGER N8N TEACHER ANALYSIS
-    // --------------------------------------------------
-    const triggerN8nAnalysis = async () => {
-        setLogs((prev) => [...prev, "🤖 Triggering AI Teacher Report via n8n..."]);
+    useEffect(() => {
+        if (teacherReport) fetchVisualData();
+    }, [teacherReport]);
+
+    // ---------------------------
+    // RENDER CHARTS
+    // ---------------------------
+    useEffect(() => {
+        if (!visualData) return;
+
+        const names = visualData.map((t) => t.name);
+
+        const radarScores = visualData.map((t) => [
+            t.classroomManagement,
+            t.differentiateInstruction,
+            t.socialEmotional,
+            t.numeracy,
+            t.fineMotor,
+            t.creativeArts
+        ]);
+
+        const suitability = visualData.map((t) => t.suitabilityScore);
+        const expYears = visualData.map((t) => t.experienceYears);
+
+        // 🎨 COLOR PALETTE (10 colors)
+        const colors = [
+            "#3b82f6", "#22c55e", "#ef4444", "#a855f7", "#f97316",
+            "#06b6d4", "#84cc16", "#ec4899", "#6366f1", "#0ea5e9"
+        ];
+
+        // ------------------ RADAR CHART ------------------
+        if (radarChartRef.current) {
+            echarts.dispose(radarChartRef.current);
+            const radar = echarts.init(radarChartRef.current);
+
+            radar.setOption({
+                title: { text: "Teacher Skill Radar" },
+                color: colors,
+                tooltip: {},
+                legend: {
+                    data: names,
+                    bottom: 0,
+                    type: "scroll",
+                    orient: "horizontal"
+                },
+                radar: {
+                    indicator: [
+                        { name: "Classroom", max: 5 },
+                        { name: "Differentiation", max: 5 },
+                        { name: "Social Emotional", max: 5 },
+                        { name: "Numeracy", max: 5 },
+                        { name: "Fine Motor", max: 5 },
+                        { name: "Creative Arts", max: 5 }
+                    ]
+                },
+                series: radarScores.map((scores, i) => ({
+                    type: "radar",
+                    name: names[i],
+                    data: [scores],
+                    itemStyle: { color: colors[i % colors.length] },
+                    lineStyle: { color: colors[i % colors.length], width: 2 },
+                    areaStyle: { opacity: 0.1, color: colors[i % colors.length] }
+                }))
+            });
+        }
+
+        // ------------------ BAR CHART ------------------
+        if (barChartRef.current) {
+            echarts.dispose(barChartRef.current);
+            const bar = echarts.init(barChartRef.current);
+
+            bar.setOption({
+                title: { text: "Suitability Scores" },
+                color: colors,
+                xAxis: {
+                    type: "category",
+                    data: names,
+                    axisLabel: { interval: 0, rotate: 25 }
+                },
+                yAxis: { type: "value" },
+                series: [
+                    {
+                        type: "bar",
+                        data: suitability,
+                        barWidth: "50%",
+                        itemStyle: {
+                            color: (params) => colors[params.dataIndex % colors.length]
+                        }
+                    }
+                ]
+            });
+        }
+
+        // ------------------ LINE CHART ------------------
+        if (lineChartRef.current) {
+            echarts.dispose(lineChartRef.current);
+            const line = echarts.init(lineChartRef.current);
+
+            line.setOption({
+                title: { text: "Experience Years" },
+                color: colors,
+                xAxis: {
+                    type: "category",
+                    data: names,
+                    axisLabel: { interval: 0, rotate: 25 }
+                },
+                yAxis: { type: "value" },
+                series: [
+                    {
+                        type: "line",
+                        smooth: true,
+                        data: expYears,
+                        symbolSize: 10,
+                        lineStyle: { width: 3 },
+                        itemStyle: {
+                            color: (params) => colors[params.dataIndex % colors.length]
+                        }
+                    }
+                ]
+            });
+        }
+    }, [visualData]);
+
+    // ---------------------------
+    // AI ANALYSIS
+    // ---------------------------
+    const triggerN8n = async () => {
         setIsProcessingAI(true);
         setTeacherReport(null);
-        setAiError(null);
+        setVisualData(null);
 
         try {
-            // Call the backend endpoint created in server.js
-            const response = await fetch('/api/teacher-analysis-report', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                // You can send any request body data here if needed
+            const res = await fetch("/api/teacher-analysis-report", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ trigger: true }),
             });
 
-            if (!response.ok) {
-                // Attempt to read the error from the server
-                const errorBody = await response.json();
-                throw new Error(errorBody.details || `HTTP error! Status: ${response.status}`);
-            }
-
-            // The backend waits for n8n and returns the final JSON data
-            const data = await response.json();
-
-            setTeacherReport(data); // Store the incoming JSON data
-            setLogs((prev) => [...prev, "✅ AI Report received successfully!"]);
-
+            const json = await res.json();
+            setTeacherReport(json);
         } catch (err) {
-            console.error('AI Report Fetch Error:', err);
-            setAiError(`Error generating report: ${err.message}`);
-            setLogs((prev) => [...prev, `❌ AI Report failed: ${err.message.substring(0, 80)}...`]);
-        } finally {
-            setIsProcessingAI(false);
+            console.error(err);
         }
+
+        setIsProcessingAI(false);
     };
 
-    // --------------------------------------------------
-    // FUNCTION: CLEAR LOGS (Existing)
-    // --------------------------------------------------
-    const clearLogs = () => {
-        setLogs([]);
-        setTeacherReport(null); // Also clear the report when clearing logs
-        setAiError(null);
-    };
-
-    // --------------------------------------------------
-    // FUNCTION: LOGOUT (Existing)
-    // --------------------------------------------------
-    const handleLogout = () => {
-        localStorage.removeItem("loggedIn");
-        navigate("/");
-    };
-
-    // --------------------------------------------------
-    // RENDER DASHBOARD
-    // --------------------------------------------------
+    // ---------------------------
+    // UI
+    // ---------------------------
     return (
         <div className="dashboard-container">
-            <Navbar onLogout={handleLogout} />
+            <Navbar onLogout={() => { localStorage.removeItem("loggedIn"); navigate("/"); }} />
+
             <div className="dashboard-content">
                 <h2>🎓 Kindergarten Teacher Dashboard</h2>
-                <p>Click below to send updates or generate AI reports.</p>
+                <p>Select an option.</p>
 
-                {/* TABS NAVIGATION - ADDING NEW TAB */}
+                {/* TABS */}
                 <div className="tabs">
-                    {/* Existing Tabs */}
-                    <button
-                        className={`tab-btn ${activeTab === "daily" ? "active" : ""}`}
-                        onClick={() => setActiveTab("daily")}
-                    >
-                        Daily Reports
-                    </button>
-                    <button
-                        className={`tab-btn ${activeTab === "menu" ? "active" : ""}`}
-                        onClick={() => setActiveTab("menu")}
-                    >
-                        Weekly Menu
-                    </button>
-                    <button
-                        className={`tab-btn ${activeTab === "status" ? "active" : ""}`}
-                        onClick={() => setActiveTab("status")}
-                    >
-                        Student Status
-                    </button>
-                    {/* NEW TAB */}
-                    <button
-                        className={`tab-btn ${activeTab === "ai" ? "active" : ""}`}
-                        onClick={() => setActiveTab("ai")}
-                    >
-                        🧠 AI Reports
-                    </button>
+                    <button className={`tab-btn ${activeTab === "daily" ? "active" : ""}`} onClick={() => setActiveTab("daily")}>Daily</button>
+                    <button className={`tab-btn ${activeTab === "menu" ? "active" : ""}`} onClick={() => setActiveTab("menu")}>Menu</button>
+                    <button className={`tab-btn ${activeTab === "status" ? "active" : ""}`} onClick={() => setActiveTab("status")}>Student Status</button>
+                    <button className={`tab-btn ${activeTab === "ai" ? "active" : ""}`} onClick={() => setActiveTab("ai")}>🧠 Teacher Performance Analyser</button>
                 </div>
 
-                {/* ACTION BUTTONS & AI REPORT DISPLAY */}
-                <div className="button-section">
-                    {/* Existing Buttons */}
-                    {activeTab === "daily" && (
-                        <button className="send-btn" onClick={sendMessages} disabled={isSending}>
-                            {isSending ? "📨 Sending Daily Reports..." : "🚀 Send Daily Reports"}
-                        </button>
-                    )}
-
-                    {activeTab === "menu" && (
-                        <button className="send-btn" onClick={sendWeeklyMenu} disabled={isSending}>
-                            {isSending ? "🍱 Sending Weekly Menu..." : "📆 Send Weekly Menu"}
-                        </button>
-                    )}
-
-                    {activeTab === "status" && (
-                        <button
-                            className="send-btn"
-                            style={{ background: "#8b5cf6" }}
-                            onClick={fetchStudentStatus}
-                            disabled={isSending || isProcessingAI} // Disable if any other major task is running
-                        >
-                            📊 Student Report Status
-                        </button>
-                    )}
-
-                    {/* NEW AI REPORT BUTTON */}
-                    {activeTab === "ai" && (
-                        <button
-                            className="send-btn"
-                            style={{ background: "#ef4444" }} // Red color for distinction
-                            onClick={triggerN8nAnalysis}
-                            disabled={isSending || isProcessingAI}
-                        >
-                            {isProcessingAI ? "🧠 Running AI Analysis..." : "🚀 Generate Teacher AI Report"}
-                        </button>
-                    )}
-
-                    <button className="clear-btn" onClick={clearLogs}>
-                        🧹 Clear Logs
+                {/* ---------------- DAILY TAB ---------------- */}
+                {activeTab === "daily" && (
+                    <button className="send-btn" onClick={sendDaily}>
+                        {isSending ? "Sending..." : "Send Daily Reports"}
                     </button>
-                </div>
+                )}
 
-                {/* NEW AI REPORT DISPLAY SECTION */}
+                {/* ---------------- MENU TAB ---------------- */}
+                {activeTab === "menu" && (
+                    <button className="send-btn" onClick={sendMenu}>
+                        {isSending ? "Sending..." : "Send Weekly Menu"}
+                    </button>
+                )}
+
+                {/* ---------------- STATUS TAB ---------------- */}
+                {activeTab === "status" && (
+                    <button className="send-btn" onClick={fetchStatus}>
+                        Fetch Student Status
+                    </button>
+                )}
+
+                {/* ---------------- AI REPORT TAB ---------------- */}
                 {activeTab === "ai" && (
-                    <div className="ai-report-display">
-                        {isProcessingAI && (
-                            <p className="yellow">⏳ AI Analysis in progress. This may take a moment...</p>
-                        )}
+                    <>
+                        <button className="send-btn" style={{ background: "#EF4444" }} onClick={triggerN8n}>
+                            {isProcessingAI ? "⏳ Processing..." : "🚀 Generate AI Teacher Report"}
+                        </button>
 
-                        {aiError && (
-                            <p className="red">❌ AI Report Error: {aiError}</p>
-                        )}
-
-                        {teacherReport && teacherReport.output && (
+                        {/* Charts */}
+                        {visualData && (
                             <>
-                                {/* Final combined container with inline styling for the box effect */}
-                                <div
-                                    className="report-box"
-                                    style={REPORT_BOX_STYLE}
-                                    // Render the formatted HTML inside the box
-                                    dangerouslySetInnerHTML={{ __html: renderMarkdownAsHtml("✅ Generated Teacher Report Data:<br/>" + teacherReport.output) }}
-                                />
+                                <h3 style={{ marginTop: "30px" }}>📊 Teacher Performance Visuals</h3>
+
+                                <div ref={radarChartRef} style={{ width: "100%", height: "350px" }} />
+                                <div ref={barChartRef} style={{ width: "100%", height: "350px", marginTop: "30px" }} />
+                                <div ref={lineChartRef} style={{ width: "100%", height: "350px", marginTop: "30px" }} />
                             </>
                         )}
-                    </div>
+
+                        {/* AI Report */}
+                        {teacherReport?.output && (
+                            <div
+                                style={REPORT_BOX_STYLE}
+                                dangerouslySetInnerHTML={{
+                                    __html: renderMarkdownAsHtml("<h3>📘 AI Teacher Report</h3><br/>" + teacherReport.output)
+                                }}
+                            />
+                        )}
+                    </>
                 )}
-                {/* END NEW AI REPORT DISPLAY SECTION */}
 
-
+                {/* LOG BOX FOR DAILY + STATUS */}
                 <div className="log-box">
-                    {logs.length === 0 ? (
-                        <p className="muted">🕒 No logs yet. Click a button to start.</p>
-                    ) : (
-                        logs.map((log, i) => {
-                            let colorClass = "";
-                            if (log.includes("✅")) colorClass = "green";
-                            else if (log.includes("⚠️")) colorClass = "yellow";
-                            else if (log.includes("❌")) colorClass = "red";
-                            return (
-                                <p key={i} className={colorClass}>
-                                    {log}
-                                </p>
-                            );
-                        })
-                    )}
+                    {logs.map((log, idx) => (
+                        <p key={idx}>{log}</p>
+                    ))}
                 </div>
             </div>
         </div>
