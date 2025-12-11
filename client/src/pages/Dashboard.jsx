@@ -6,11 +6,10 @@ import Navbar from "../components/Navbar.jsx";
 import * as echarts from "echarts";
 
 // -----------------------------------------------------------------------------
-// INLINE CSS (requested)
+// INLINE CSS
 // -----------------------------------------------------------------------------
 const InlineStyles = () => (
   <style>{`
-  
   body {
     background: #ffffff !important;
   }
@@ -147,7 +146,7 @@ const InlineStyles = () => (
 
   .teacher-name {
     font-size: 1.3rem;
-    margin-top: 12px;
+    margin-top: 16px;
     color: #111;
     display: block;
   }
@@ -164,37 +163,90 @@ const InlineStyles = () => (
     display: block;
   }
 
+  .section-heading {
+    margin-top: 10px;
+    font-weight: 600;
+  }
   `}</style>
 );
 
 // -----------------------------------------------------------------------------
-// Markdown → HTML converter WITH teacher formatting + bullets
+// SMART Markdown → HTML converter for AI report
 // -----------------------------------------------------------------------------
+//
+// Goal:
+// - Treat **double newlines** as paragraph separators
+// - Collapse single newlines inside paragraphs into spaces (fix broken line-wrap)
+// - Paragraph types:
+//   * "Teacher: Name"   -> big teacher heading
+//   * "Verdict: X"      -> verdict line
+//   * "- something"     -> bullet line
+//   * "Strengths:" etc  -> bold subsection headers
+//
 const renderMarkdownAsHtml = (markdownText) => {
   if (!markdownText) return "";
 
-  let html = markdownText;
+  // Normalise newlines
+  let text = markdownText.replace(/\r\n/g, "\n").trim();
 
-  // Convert "- text" into bullet points
-  html = html.replace(/\n-\s+/g, `<br /><span class="bullet">• `);
+  // Preserve paragraph breaks: temporarily mark double-newlines
+  const PARA_TOKEN = "__PARA_BREAK__";
+  text = text.replace(/\n{2,}/g, PARA_TOKEN);
 
-  // Replace Teacher: NAME
-  html = html.replace(
-    /Teacher:\s*([^\n<]+)/g,
-    `<br /><span class="teacher-name">👩‍🏫 <strong>$1</strong></span>`
-  );
+  // Collapse remaining single newlines into spaces (fix word-per-line)
+  text = text.replace(/\n/g, " ");
 
-  // Replace Verdict:
-  html = html.replace(
-    /Verdict:\s*([^\n<]+)/g,
-    `<span class="teacher-verdict"><strong>Verdict: $1</strong></span>`
-  );
+  // Restore paragraph breaks
+  text = text.replace(new RegExp(PARA_TOKEN, "g"), "\n\n");
 
-  // Basic bold formatting
-  html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  // Split into paragraphs
+  const paragraphs = text
+    .split(/\n\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
 
-  // Convert newlines to <br>
-  html = html.replace(/\n/g, "<br />");
+  let html = "";
+
+  for (let p of paragraphs) {
+    // Bold markdown (**text**)
+    p = p.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+
+    // TEACHER NAME
+    if (/^Teacher:\s*/i.test(p)) {
+      const name = p.replace(/^Teacher:\s*/i, "").trim();
+      html += `<div class="teacher-name">👩‍🏫 <strong>${name}</strong></div>`;
+      continue;
+    }
+
+    // VERDICT
+    if (/^Verdict:\s*/i.test(p)) {
+      const v = p.replace(/^Verdict:\s*/i, "").trim();
+      html += `<div class="teacher-verdict"><strong>Verdict: ${v}</strong></div>`;
+      continue;
+    }
+
+    // SECTION HEADINGS (Strengths, Weaknesses, Guidance, Final Suggestion, etc.)
+    if (
+      /^Strengths:/i.test(p) ||
+      /^Weaknesses:/i.test(p) ||
+      /^Guidance/i.test(p) ||
+      /^Challenges:/i.test(p) ||
+      /^Final Suggestion/i.test(p)
+    ) {
+      html += `<div class="section-heading">${p}</div>`;
+      continue;
+    }
+
+    // BULLET (lines starting with "- ")
+    if (/^- /.test(p)) {
+      const item = p.replace(/^- /, "").trim();
+      html += `<div class="bullet">• ${item}</div>`;
+      continue;
+    }
+
+    // FALLBACK: normal paragraph
+    html += `<div>${p}</div>`;
+  }
 
   return html;
 };
@@ -309,7 +361,7 @@ const Dashboard = () => {
 
       setVisualData(teachers);
       appendLog("✅ Visual data loaded.");
-    } catch (err) {
+    } catch {
       appendLog("❌ Error loading visual data.");
     }
   };
@@ -524,14 +576,15 @@ const Dashboard = () => {
             {activeTab === "ai" && (
               <div className="tab-panel">
                 <h3>🧠 Teacher Performance</h3>
-                <p>Generate AI insights + visual analytics.</p>
+                <p>Generate AI insights and visual analytics for each teacher.</p>
 
                 <button
                   className="send-btn"
                   style={{ background: "#ef4444" }}
                   onClick={triggerN8n}
+                  disabled={isProcessingAI}
                 >
-                  🚀 Generate AI Report
+                  {isProcessingAI ? "⏳ Processing..." : "🚀 Generate AI Report"}
                 </button>
 
                 {/* Charts */}
@@ -559,7 +612,9 @@ const Dashboard = () => {
             <div className="logs-section">
               <div className="logs-header">
                 <h3>Logs</h3>
-                <button className="clear-btn" onClick={clearLogs}>🧹 Clear Logs</button>
+                <button className="clear-btn" onClick={clearLogs}>
+                  🧹 Clear Logs
+                </button>
               </div>
 
               {logs.length === 0 ? (
@@ -567,11 +622,14 @@ const Dashboard = () => {
               ) : (
                 <ul className="logs-list">
                   {logs.map((log, i) => (
-                    <li key={i} className={`log-item 
-                      ${log.includes("❌") ? "red" : ""}
-                      ${log.includes("⚠️") ? "yellow" : ""}
-                      ${log.includes("✅") ? "green" : ""}
-                    `}>
+                    <li
+                      key={i}
+                      className={`log-item 
+                        ${log.includes("❌") ? "red" : ""}
+                        ${log.includes("⚠️") ? "yellow" : ""}
+                        ${log.includes("✅") ? "green" : ""}
+                      `}
+                    >
                       {log}
                     </li>
                   ))}
