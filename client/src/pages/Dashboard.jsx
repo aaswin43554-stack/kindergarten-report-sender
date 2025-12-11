@@ -4,74 +4,221 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar.jsx";
 import * as echarts from "echarts";
-import "../styles.css";
 
-// Enhanced Markdown → HTML converter for AI report
+// -----------------------------------------------------------------------------
+// INLINE CSS (requested)
+// -----------------------------------------------------------------------------
+const InlineStyles = () => (
+  <style>{`
+  
+  body {
+    background: #ffffff !important;
+  }
+
+  .dashboard-page {
+    min-height: 100vh;
+    background: #ffffff;
+    display: flex;
+    justify-content: center;
+  }
+
+  .dashboard-container {
+    max-width: 1100px;
+    width: 100%;
+    padding: 32px 24px 40px;
+    margin: 0 auto;
+  }
+
+  .dashboard-title {
+    font-size: 2.6rem;
+    font-weight: 800;
+    text-align: center;
+    margin-bottom: 8px;
+    color: #222;
+  }
+
+  .dashboard-subtitle {
+    text-align: center;
+    color: #555;
+    font-size: 1.1rem;
+    margin-bottom: 24px;
+  }
+
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 25px;
+  }
+
+  .tab-btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    background: #f5f5f5;
+    cursor: pointer;
+    font-size: 0.95rem;
+    transition: 0.2s ease-in-out;
+  }
+
+  .tab-btn:hover {
+    background: #e8e8e8;
+  }
+
+  .tab-btn.active {
+    background: #4f46e5;
+    color: white;
+    font-weight: 600;
+    border-color: #4f46e5;
+  }
+
+  .tab-panel {
+    text-align: center;
+    padding: 20px 10px;
+  }
+
+  .send-btn {
+    background: #10b981;
+    color: white;
+    padding: 14px 28px;
+    border-radius: 10px;
+    font-size: 1.2rem;
+    border: none;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+
+  .send-btn:hover {
+    background: #0d966c;
+  }
+
+  .clear-btn {
+    background: #f59e0b;
+    padding: 8px 16px;
+    border-radius: 8px;
+    color: white;
+    border: none;
+    cursor: pointer;
+  }
+
+  .logs-section {
+    margin-top: 20px;
+    padding: 20px;
+    border-radius: 10px;
+    background: #fafafa;
+  }
+
+  .logs-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .logs-list {
+    margin-top: 14px;
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .log-item {
+    padding: 4px 0;
+    font-size: 0.95rem;
+  }
+
+  .log-item.green { color: #16a34a; }
+  .log-item.yellow { color: #d97706; }
+  .log-item.red { color: #dc2626; }
+
+  /* ------------------------------------------------------------------ */
+  /* TEACHER PERFORMANCE AI REPORT STYLES                               */
+  /* ------------------------------------------------------------------ */
+  .teacher-report-box {
+    background: white;
+    border: 1px solid #e5e7eb;
+    padding: 22px;
+    margin-top: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+    text-align: left;
+    max-height: 70vh;
+    overflow-y: auto;
+    line-height: 1.55;
+  }
+
+  .teacher-name {
+    font-size: 1.3rem;
+    margin-top: 12px;
+    color: #111;
+    display: block;
+  }
+
+  .teacher-verdict {
+    font-size: 1.05rem;
+    color: #444;
+    margin-bottom: 4px;
+    display: block;
+  }
+
+  .bullet {
+    margin-left: 22px;
+    display: block;
+  }
+
+  `}</style>
+);
+
+// -----------------------------------------------------------------------------
+// Markdown → HTML converter WITH teacher formatting + bullets
+// -----------------------------------------------------------------------------
 const renderMarkdownAsHtml = (markdownText) => {
   if (!markdownText) return "";
 
   let html = markdownText;
 
-  // Basic bold
-  html = html.replace(/\*\*([^\*]+)\*\*/g, "<strong>$1</strong>");
+  // Convert "- text" into bullet points
+  html = html.replace(/\n-\s+/g, `<br /><span class="bullet">• `);
 
-  // Turn newlines into <br>
+  // Replace Teacher: NAME
+  html = html.replace(
+    /Teacher:\s*([^\n<]+)/g,
+    `<br /><span class="teacher-name">👩‍🏫 <strong>$1</strong></span>`
+  );
+
+  // Replace Verdict:
+  html = html.replace(
+    /Verdict:\s*([^\n<]+)/g,
+    `<span class="teacher-verdict"><strong>Verdict: $1</strong></span>`
+  );
+
+  // Basic bold formatting
+  html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+
+  // Convert newlines to <br>
   html = html.replace(/\n/g, "<br />");
-
-  // Turn "- something" into "• something" (simple bullet look)
-  html = html.replace(/<br\s*\/?>-\s+/g, "<br />• ");
-
-  // Emphasize Teacher: and Verdict:
-  html = html.replace(
-    /Teacher:\s*([^<]+)<br\s*\/?>/gi,
-    '<br /><span class="teacher-name"><strong>👩‍🏫 $1</strong></span><br />'
-  );
-
-  html = html.replace(
-    /Verdict:\s*([^<]+)<br\s*\/?>/gi,
-    '<span class="teacher-verdict"><strong>Verdict: $1</strong></span><br />'
-  );
 
   return html;
 };
 
-const REPORT_BOX_STYLE = {
-  backgroundColor: "white",
-  border: "1px solid #e0e0e0",
-  borderRadius: "12px",
-  padding: "24px",
-  marginTop: "25px",
-  boxShadow: "0 4px 10px rgba(0, 0, 0, 0.05)",
-  wordBreak: "break-word",
-  textAlign: "left",       // 👈 left-aligned text
-  maxHeight: "70vh",
-  overflowY: "auto",
-};
-
+// -----------------------------------------------------------------------------
+// MAIN COMPONENT
+// -----------------------------------------------------------------------------
 const Dashboard = () => {
   const navigate = useNavigate();
 
-  // Core state
   const [logs, setLogs] = useState([]);
   const [isSending, setIsSending] = useState(false);
   const [activeTab, setActiveTab] = useState("daily");
 
-  // AI + visuals
   const [teacherReport, setTeacherReport] = useState(null);
   const [visualData, setVisualData] = useState(null);
   const [isProcessingAI, setIsProcessingAI] = useState(false);
 
-  // Chart refs
   const radarChartRef = useRef(null);
   const barChartRef = useRef(null);
   const lineChartRef = useRef(null);
 
-  // Helpers
-  const appendLog = (msg) => {
-    const text =
-      typeof msg === "string" ? msg : JSON.stringify(msg, null, 2);
-    setLogs((prev) => [...prev, text]);
-  };
+  const appendLog = (msg) =>
+    setLogs((prev) => [...prev, typeof msg === "string" ? msg : JSON.stringify(msg)]);
 
   const clearLogs = () => setLogs([]);
 
@@ -80,126 +227,94 @@ const Dashboard = () => {
     navigate("/");
   };
 
-  // DAILY REPORTS
+  // ---------------- DAILY REPORTS ----------------
   const sendDaily = () => {
     setLogs([]);
     setIsSending(true);
 
-    const eventSource = new EventSource("/send");
+    const es = new EventSource("/send");
 
-    eventSource.onmessage = (event) => {
-      if (event.data === "[DONE]") {
-        eventSource.close();
+    es.onmessage = (e) => {
+      if (e.data === "[DONE]") {
+        es.close();
         setIsSending(false);
-        return;
-      }
-      appendLog(event.data);
+      } else appendLog(e.data);
     };
 
-    eventSource.onerror = (err) => {
-      console.error("❌ SSE error (daily):", err);
-      appendLog("❌ Connection error while sending daily reports.");
+    es.onerror = () => {
+      appendLog("❌ Error sending daily reports.");
+      es.close();
       setIsSending(false);
-      eventSource.close();
     };
   };
 
-  // WEEKLY MENU
+  // ---------------- WEEKLY MENU ----------------
   const sendWeeklyMenu = () => {
     setLogs([]);
     setIsSending(true);
 
-    const eventSource = new EventSource("/send-menu");
+    const es = new EventSource("/send-menu");
 
-    eventSource.onmessage = (event) => {
-      if (event.data === "[DONE]") {
-        eventSource.close();
+    es.onmessage = (e) => {
+      if (e.data === "[DONE]") {
+        es.close();
         setIsSending(false);
-        return;
-      }
-      appendLog(event.data);
+      } else appendLog(e.data);
     };
 
-    eventSource.onerror = (err) => {
-      console.error("❌ SSE error (menu):", err);
-      appendLog("❌ Connection error while sending weekly menu.");
+    es.onerror = () => {
+      appendLog("❌ Error sending weekly menu.");
+      es.close();
       setIsSending(false);
-      eventSource.close();
     };
   };
 
-  // STUDENT STATUS
+  // ---------------- STUDENT STATUS ----------------
   const fetchStudentStatus = async () => {
-    appendLog("📊 Fetching student report status...");
+    appendLog("📊 Fetching student status...");
     try {
-      const response = await fetch("/student-status");
-      const data = await response.json();
-
-      if (data?.message) {
-        appendLog(`✅ Status: ${data.message}`);
-      } else {
-        appendLog("⚠️ Received empty status.");
-      }
-    } catch (error) {
-      console.error("Error fetching status:", error);
-      appendLog("❌ Error fetching status from server.");
+      const res = await fetch("/student-status");
+      const json = await res.json();
+      appendLog(json.message || "⚠️ No status returned.");
+    } catch {
+      appendLog("❌ Error fetching student status.");
     }
   };
 
-  // VISUAL DATA FETCH (robust to different shapes)
+  // ---------------- VISUAL DATA ----------------
   const fetchVisualData = async () => {
     try {
       const response = await fetch("/api/teacher-visual");
       const rawText = await response.text();
 
-      console.log("📩 /api/teacher-visual RAW:", rawText);
-
       let raw;
       try {
         raw = JSON.parse(rawText);
-      } catch (err) {
-        console.error("❌ JSON parse failed:", err);
-        appendLog("❌ Could not parse visual data JSON.");
+      } catch {
+        appendLog("❌ Could not parse AI visual data JSON.");
         return;
       }
-
-      console.log("📊 Parsed visual JSON:", raw);
 
       let teachers = null;
 
-      // Case 1: [{ teachers: [...] }]
-      if (Array.isArray(raw) && raw.length > 0 && Array.isArray(raw[0]?.teachers)) {
-        teachers = raw[0].teachers;
-      }
-      // Case 2: { teachers: [...] }
-      else if (Array.isArray(raw?.teachers)) {
-        teachers = raw.teachers;
-      }
-      // Case 3: [ { ...teacher } ]
-      else if (Array.isArray(raw) && raw.length > 0 && typeof raw[0] === "object") {
-        teachers = raw;
-      }
-      // Case 4: { data: [...] }
-      else if (Array.isArray(raw?.data)) {
-        teachers = raw.data;
-      }
+      if (Array.isArray(raw) && raw[0]?.teachers) teachers = raw[0].teachers;
+      else if (raw.teachers) teachers = raw.teachers;
+      else if (Array.isArray(raw)) teachers = raw;
+      else if (Array.isArray(raw.data)) teachers = raw.data;
 
-      if (!teachers || !teachers.length) {
-        console.error("❌ visualData missing or wrong shape:", raw);
-        appendLog("❌ Visual data missing or in wrong shape.");
+      if (!teachers) {
+        appendLog("❌ Visual data missing or in wrong format.");
         return;
       }
 
-      console.log("🎯 Final teachers array:", teachers);
-      appendLog(`✅ Loaded visual data for ${teachers.length} teachers.`);
       setVisualData(teachers);
+      appendLog("✅ Visual data loaded.");
     } catch (err) {
-      console.error("❌ Visual Fetch Error:", err);
-      appendLog("❌ Error fetching teacher visual data.");
+      appendLog("❌ Error loading visual data.");
     }
   };
 
-  // AI TEACHER REPORT
+  // ---------------- AI TEACHER REPORT ----------------
   const triggerN8n = async () => {
     setIsProcessingAI(true);
     setTeacherReport(null);
@@ -218,21 +333,19 @@ const Dashboard = () => {
       setTeacherReport(json);
       appendLog("✅ AI teacher report generated.");
 
-      await fetchVisualData();
-    } catch (err) {
-      console.error(err);
-      appendLog("❌ Failed to generate AI teacher report.");
-    } finally {
-      setIsProcessingAI(false);
+      fetchVisualData();
+    } catch {
+      appendLog("❌ AI report failed.");
     }
+
+    setIsProcessingAI(false);
   };
 
-  // CHARTS
+  // ---------------- ECHARTS ----------------
   useEffect(() => {
-    if (!visualData || visualData.length === 0) return;
+    if (!visualData) return;
 
     const names = visualData.map((t) => t.name);
-
     const radarScores = visualData.map((t) => [
       t.classroomManagement,
       t.differentiateInstruction,
@@ -241,7 +354,6 @@ const Dashboard = () => {
       t.fineMotor,
       t.creativeArts,
     ]);
-
     const suitability = visualData.map((t) => t.suitabilityScore);
     const expYears = visualData.map((t) => t.experienceYears);
 
@@ -261,23 +373,16 @@ const Dashboard = () => {
     // Radar
     if (radarChartRef.current) {
       echarts.dispose(radarChartRef.current);
-      const radar = echarts.init(radarChartRef.current);
-
-      radar.setOption({
+      const chart = echarts.init(radarChartRef.current);
+      chart.setOption({
         title: { text: "Teacher Skill Radar" },
-        color: colors,
         tooltip: {},
-        legend: {
-          data: names,
-          bottom: 0,
-          type: "scroll",
-          orient: "horizontal",
-        },
+        legend: { bottom: 0 },
         radar: {
           indicator: [
             { name: "Classroom", max: 5 },
             { name: "Differentiation", max: 5 },
-            { name: "Social Emotional", max: 5 },
+            { name: "Soc-Emotional", max: 5 },
             { name: "Numeracy", max: 5 },
             { name: "Fine Motor", max: 5 },
             { name: "Creative Arts", max: 5 },
@@ -288,8 +393,7 @@ const Dashboard = () => {
           name: names[i],
           data: [scores],
           itemStyle: { color: colors[i % colors.length] },
-          lineStyle: { color: colors[i % colors.length], width: 2 },
-          areaStyle: { opacity: 0.1, color: colors[i % colors.length] },
+          areaStyle: { opacity: 0.1 },
         })),
       });
     }
@@ -297,24 +401,17 @@ const Dashboard = () => {
     // Bar
     if (barChartRef.current) {
       echarts.dispose(barChartRef.current);
-      const bar = echarts.init(barChartRef.current);
-
-      bar.setOption({
+      const chart = echarts.init(barChartRef.current);
+      chart.setOption({
         title: { text: "Suitability Scores" },
-        color: colors,
-        xAxis: {
-          type: "category",
-          data: names,
-          axisLabel: { interval: 0, rotate: 25 },
-        },
+        xAxis: { type: "category", data: names },
         yAxis: { type: "value" },
         series: [
           {
             type: "bar",
             data: suitability,
-            barWidth: "50%",
             itemStyle: {
-              color: (params) => colors[params.dataIndex % colors.length],
+              color: (p) => colors[p.dataIndex % colors.length],
             },
           },
         ],
@@ -324,47 +421,40 @@ const Dashboard = () => {
     // Line
     if (lineChartRef.current) {
       echarts.dispose(lineChartRef.current);
-      const line = echarts.init(lineChartRef.current);
-
-      line.setOption({
+      const chart = echarts.init(lineChartRef.current);
+      chart.setOption({
         title: { text: "Experience Years" },
-        color: colors,
-        xAxis: {
-          type: "category",
-          data: names,
-          axisLabel: { interval: 0, rotate: 25 },
-        },
+        xAxis: { type: "category", data: names },
         yAxis: { type: "value" },
         series: [
           {
             type: "line",
             smooth: true,
             data: expYears,
-            symbolSize: 10,
-            lineStyle: { width: 3 },
-            itemStyle: {
-              color: (params) => colors[params.dataIndex % colors.length],
-            },
+            itemStyle: { color: "#4f46e5" },
           },
         ],
       });
     }
   }, [visualData]);
 
+  // -------------------------------------------------------------------------
+  // RENDER
+  // -------------------------------------------------------------------------
   return (
     <>
+      <InlineStyles /> {/* Inject CSS */}
       <Navbar onLogout={handleLogout} />
 
       <div className="dashboard-page">
         <div className="dashboard-container">
-          <h1 className="dashboard-title">
-            🎓 Kindergarten Teacher Dashboard
-          </h1>
+
+          <h1 className="dashboard-title">🎓 Kindergarten Teacher Dashboard</h1>
           <p className="dashboard-subtitle">
             Use the tabs below to send updates, view status, or run AI analysis.
           </p>
 
-          {/* Tabs */}
+          {/* TAB BUTTONS */}
           <div className="tabs">
             <button
               className={`tab-btn ${activeTab === "daily" ? "active" : ""}`}
@@ -372,18 +462,21 @@ const Dashboard = () => {
             >
               Daily
             </button>
+
             <button
               className={`tab-btn ${activeTab === "menu" ? "active" : ""}`}
               onClick={() => setActiveTab("menu")}
             >
               Menu
             </button>
+
             <button
               className={`tab-btn ${activeTab === "status" ? "active" : ""}`}
               onClick={() => setActiveTab("status")}
             >
               Student Status
             </button>
+
             <button
               className={`tab-btn ${activeTab === "ai" ? "active" : ""}`}
               onClick={() => setActiveTab("ai")}
@@ -392,100 +485,67 @@ const Dashboard = () => {
             </button>
           </div>
 
-          {/* Main content area */}
+          {/* TAB CONTENT */}
           <div className="dashboard-content">
-            {/* DAILY TAB */}
+
             {activeTab === "daily" && (
               <div className="tab-panel">
                 <h3>📆 Daily Student Reports</h3>
-                <p>Send today&apos;s WhatsApp updates to all parents.</p>
-                <button
-                  className="send-btn"
-                  onClick={sendDaily}
-                  disabled={isSending}
-                >
-                  {isSending
-                    ? "📨 Sending Daily Reports..."
-                    : "🚀 Send Daily Reports"}
+                <p>Send WhatsApp updates to parents.</p>
+                <button className="send-btn" onClick={sendDaily}>
+                  🚀 Send Daily Reports
                 </button>
               </div>
             )}
 
-            {/* MENU TAB */}
             {activeTab === "menu" && (
               <div className="tab-panel">
                 <h3>🍱 Weekly Menu</h3>
-                <p>Send this week&apos;s food menu to all parents via WhatsApp.</p>
-                <button
-                  className="send-btn"
-                  onClick={sendWeeklyMenu}
-                  disabled={isSending}
-                >
-                  {isSending
-                    ? "🍽 Sending Weekly Menu..."
-                    : "📆 Send Weekly Menu"}
+                <p>Message all parents with the weekly food menu.</p>
+                <button className="send-btn" onClick={sendWeeklyMenu}>
+                  🍽 Send Weekly Menu
                 </button>
               </div>
             )}
 
-            {/* STATUS TAB */}
             {activeTab === "status" && (
               <div className="tab-panel">
                 <h3>📊 Student Report Status</h3>
-                <p>See which student reports have been submitted.</p>
                 <button
                   className="send-btn"
                   style={{ background: "#8b5cf6" }}
                   onClick={fetchStudentStatus}
                 >
-                  📊 Check Report Status
+                  📊 Check Status
                 </button>
               </div>
             )}
 
-            {/* AI TAB */}
             {activeTab === "ai" && (
               <div className="tab-panel">
                 <h3>🧠 Teacher Performance</h3>
-                <p>
-                  Run AI analysis over teacher performance and view structured
-                  insights with charts.
-                </p>
+                <p>Generate AI insights + visual analytics.</p>
 
                 <button
                   className="send-btn"
                   style={{ background: "#ef4444" }}
                   onClick={triggerN8n}
-                  disabled={isProcessingAI}
                 >
-                  {isProcessingAI
-                    ? "⏳ Processing AI Report..."
-                    : "🚀 Generate AI Teacher Report"}
+                  🚀 Generate AI Report
                 </button>
 
                 {/* Charts */}
                 {visualData && (
-                  <div style={{ marginTop: "30px" }}>
-                    <h4>📊 Teacher Performance Visuals</h4>
-                    <div
-                      ref={radarChartRef}
-                      style={{ width: "100%", height: "350px", marginTop: "20px" }}
-                    />
-                    <div
-                      ref={barChartRef}
-                      style={{ width: "100%", height: "320px", marginTop: "30px" }}
-                    />
-                    <div
-                      ref={lineChartRef}
-                      style={{ width: "100%", height: "320px", marginTop: "30px" }}
-                    />
-                  </div>
+                  <>
+                    <div ref={radarChartRef} style={{ height: 350, marginTop: 20 }} />
+                    <div ref={barChartRef} style={{ height: 300, marginTop: 30 }} />
+                    <div ref={lineChartRef} style={{ height: 300, marginTop: 30 }} />
+                  </>
                 )}
 
-                {/* AI Report text */}
+                {/* AI Text */}
                 {teacherReport?.output && (
                   <div
-                    style={REPORT_BOX_STYLE}
                     className="teacher-report-box"
                     dangerouslySetInnerHTML={{
                       __html: renderMarkdownAsHtml(teacherReport.output),
@@ -495,36 +555,30 @@ const Dashboard = () => {
               </div>
             )}
 
-            {/* LOGS SECTION */}
+            {/* LOGS */}
             <div className="logs-section">
               <div className="logs-header">
                 <h3>Logs</h3>
-                <button className="clear-btn" onClick={clearLogs}>
-                  🧹 Clear Logs
-                </button>
+                <button className="clear-btn" onClick={clearLogs}>🧹 Clear Logs</button>
               </div>
 
               {logs.length === 0 ? (
-                <p className="muted">
-                  🕒 No logs yet. Use the buttons above to start an action.
-                </p>
+                <p className="muted">No logs yet. Start an action.</p>
               ) : (
                 <ul className="logs-list">
-                  {logs.map((log, i) => {
-                    let colorClass = "";
-                    if (log.includes("✅")) colorClass = "green";
-                    else if (log.includes("⚠️")) colorClass = "yellow";
-                    else if (log.includes("❌")) colorClass = "red";
-
-                    return (
-                      <li key={i} className={`log-item ${colorClass}`}>
-                        {log}
-                      </li>
-                    );
-                  })}
+                  {logs.map((log, i) => (
+                    <li key={i} className={`log-item 
+                      ${log.includes("❌") ? "red" : ""}
+                      ${log.includes("⚠️") ? "yellow" : ""}
+                      ${log.includes("✅") ? "green" : ""}
+                    `}>
+                      {log}
+                    </li>
+                  ))}
                 </ul>
               )}
             </div>
+
           </div>
         </div>
       </div>
