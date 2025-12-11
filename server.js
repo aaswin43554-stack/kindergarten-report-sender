@@ -31,6 +31,7 @@ const auth = new google.auth.GoogleAuth({
 const sheets = google.sheets({ version: "v4", auth });
 
 // =======================================================
+<<<<<<< Updated upstream
 // SUPABASE CONFIGURATION
 // =======================================================
 import { createClient } from "@supabase/supabase-js";
@@ -66,6 +67,24 @@ app.get("/student-status", async (req, res) => {
     console.error("Supabase Error:", error);
     res.status(500).json({ message: `❌ Error fetching status: ${error.message}` });
   }
+=======
+// ROUTE: GET STUDENT STATUS (MODULE 2)
+// =======================================================
+app.get("/student-status", async (req, res) => {
+    try {
+        const webhook = process.env.N8N_STUDENT_REPORT_WEBHOOK_URL;
+        const resp = await fetch(webhook);
+        const text = await resp.text();
+
+        try {
+            return res.json(JSON.parse(text));
+        } catch {
+            return res.json({ raw: text });
+        }
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+>>>>>>> Stashed changes
 });
 
 // =======================================================
@@ -76,6 +95,7 @@ app.get("/send", async (req, res) => {
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
+<<<<<<< Updated upstream
   const sendLog = (msg) => res.write(`data: ${msg}\n\n`);
 
   try {
@@ -91,6 +111,52 @@ app.get("/send", async (req, res) => {
     if (!rows || rows.length === 0) {
       sendLog("⚠️ No data found in Google Sheet.");
       return res.end();
+=======
+    const log = (msg) => res.write(`data: ${msg}\n\n`);
+
+    try {
+        log("📊 Fetching sheet data...");
+        const result = await sheets.spreadsheets.values.get({
+            spreadsheetId: process.env.SHEET_ID,
+            range: "Daily Report!A2:H",
+        });
+
+        const rows = result.data.values || [];
+        log(`Found ${rows.length} rows`);
+
+        for (const row of rows) {
+            const [name, appetite, sleep, behavior, mood, note, phone] = row;
+
+            if (!phone) {
+                log(`Skipping ${name} (no phone)`);
+                continue;
+            }
+
+            const msg = `
+Daily report for ${name}
+
+🍽 Appetite: ${appetite}
+😴 Sleep: ${sleep}
+😊 Behavior: ${behavior}
+🎭 Mood: ${mood}
+📝 Note: ${note}
+`;
+
+            await client.messages.create({
+                from: process.env.TWILIO_WHATSAPP_FROM,
+                to: `whatsapp:${phone}`,
+                body: msg,
+            });
+
+            log(`Sent to ${phone}`);
+        }
+
+        log("[DONE]");
+        res.end();
+    } catch (err) {
+        log(`ERROR: ${err.message}`);
+        res.end();
+>>>>>>> Stashed changes
     }
 
     sendLog(`✅ Found ${rows.length} rows. Preparing to send messages...`);
@@ -145,6 +211,7 @@ Your child had a wonderful day at school today! 💖
 });
 
 // =======================================================
+<<<<<<< Updated upstream
 // ROUTE: SEND WEEKLY MENU (ONE MESSAGE TO ALL PARENTS)
 // =======================================================
 app.get("/send-menu", async (req, res) => {
@@ -169,6 +236,43 @@ app.get("/send-menu", async (req, res) => {
     if (!rows || rows.length === 0) {
       sendLog("⚠️ No data found in WeeklyMenu sheet.");
       return res.end();
+=======
+// ROUTE: SEND WEEKLY MENU
+// =======================================================
+app.get("/send-menu", async (req, res) => {
+    res.setHeader("Content-Type", "text/event-stream");
+    const log = (msg) => res.write(`data: ${msg}\n\n`);
+
+    try {
+        const result = await sheets.spreadsheets.values.get({
+            spreadsheetId: process.env.SHEET_ID,
+            range: "WeeklyMenu!A2:C",
+        });
+
+        const rows = result.data.values || [];
+        let menu = "*🍽 Weekly Menu 🍽*\n\n";
+
+        for (const r of rows) {
+            menu += `• ${r[0]}: ${r[1]}\n`;
+        }
+
+        const phones = [...new Set(rows.map((r) => r[2]).filter(Boolean))];
+
+        for (const p of phones) {
+            await client.messages.create({
+                from: process.env.TWILIO_WHATSAPP_FROM,
+                to: `whatsapp:${p}`,
+                body: menu,
+            });
+            log(`Menu sent to ${p}`);
+        }
+
+        log("[DONE]");
+        res.end();
+    } catch (e) {
+        log(`ERROR: ${e.message}`);
+        res.end();
+>>>>>>> Stashed changes
     }
 
     // Prepare the table of day + food
@@ -212,6 +316,7 @@ app.get("/send-menu", async (req, res) => {
 
 
 // =======================================================
+<<<<<<< Updated upstream
 // SERVE FRONTEND (OPTIONAL BUILD SUPPORT)
 // =======================================================
 const __filename = fileURLToPath(import.meta.url);
@@ -225,9 +330,51 @@ app.get("/", (req, res) => {
 });
 
 // =======================================================
+=======
+// ROUTE: AI TEACHER ANALYSIS TEXT REPORT
+// =======================================================
+app.post("/api/teacher-analysis-report", async (req, res) => {
+    try {
+        const webhook = process.env.N8N_TEACHER_REPORT_WEBHOOK_URL;
+        const response = await fetch(webhook, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(req.body),
+        });
+
+        const json = await response.json();
+        return res.json(json);
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+});
+
+// =======================================================
+// ROUTE: TEACHER VISUAL CHART DATA
+// =======================================================
+app.get("/api/teacher-visual", async (req, res) => {
+    try {
+        const webhook = process.env.N8N_TEACHER_VISUAL_URL;
+
+        const response = await fetch(webhook);
+        const json = await response.json();
+
+        return res.json(json);
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+});
+
+// =======================================================
+>>>>>>> Stashed changes
 // START SERVER
 // =======================================================
 const PORT = 3000;
 app.listen(PORT, () => {
+<<<<<<< Updated upstream
   console.log(`🚀 Server running on http://localhost:${PORT}`);
+=======
+    console.log(`🚀 Backend running at: http://localhost:${PORT}`);
+    console.log(`✨ /api/teacher-visual ready`);
+>>>>>>> Stashed changes
 });
