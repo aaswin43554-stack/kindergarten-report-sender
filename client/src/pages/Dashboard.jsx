@@ -433,23 +433,34 @@ const Dashboard = () => {
       radarInstanceRef.current = chart;
 
       chart.setOption({
-  title: { text: "Teacher Skill Radar" },
+  title: { text: "Teacher Skill Radar", left: "center" },
   tooltip: { trigger: "item" },
 
+  // ✅ Move legend to the right and keep it scrollable
   legend: {
     top: "middle",
     right: 10,
     orient: "vertical",
     type: "scroll",
-    itemGap: 12,
-    textStyle: {
-      fontSize: 12,
-    },
+    itemGap: 10,
+    textStyle: { fontSize: 12 },
     data: names,
   },
 
   radar: {
-    radius: "60%",
+    // ✅ Give more room so labels don't collide with edges
+    radius: "48%",          // smaller radar = more space for labels
+    center: ["38%", "50%"], // push radar left so legend has space
+
+    // ✅ Radar label styling (fix overlap)
+    name: {
+      fontSize: 12,         // smaller text
+      color: "#333",
+      formatter: (name) => name.replace("-", "-\n"), // break long labels
+    },
+
+    nameGap: 18,            // space between label and radar border
+    splitNumber: 5,
     indicator: [
       { name: "Classroom", max: 5 },
       { name: "Differentiation", max: 5 },
@@ -464,17 +475,9 @@ const Dashboard = () => {
     type: "radar",
     name: names[i],
     data: [scores],
-    lineStyle: {
-      width: 2,
-      color: colors[i % colors.length],
-    },
-    itemStyle: {
-      color: colors[i % colors.length],
-    },
-    areaStyle: {
-      opacity: 0.12,
-      color: colors[i % colors.length],
-    },
+    lineStyle: { width: 2, color: colors[i % colors.length] },
+    itemStyle: { color: colors[i % colors.length] },
+    areaStyle: { opacity: 0.12, color: colors[i % colors.length] },
   })),
 });
     }
