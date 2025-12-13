@@ -177,20 +177,13 @@ const InlineStyles = () => (
 const renderMarkdownAsHtml = (markdownText) => {
   if (!markdownText) return "";
 
-  // Normalise newlines
   let text = markdownText.replace(/\r\n/g, "\n").trim();
 
-  // Preserve paragraph breaks: temporarily mark double-newlines
   const PARA_TOKEN = "__PARA_BREAK__";
   text = text.replace(/\n{2,}/g, PARA_TOKEN);
-
-  // Collapse remaining single newlines into spaces (fix word-per-line)
   text = text.replace(/\n/g, " ");
-
-  // Restore paragraph breaks
   text = text.replace(new RegExp(PARA_TOKEN, "g"), "\n\n");
 
-  // Split into paragraphs
   const paragraphs = text
     .split(/\n\n+/)
     .map((p) => p.trim())
@@ -199,42 +192,36 @@ const renderMarkdownAsHtml = (markdownText) => {
   let html = "";
 
   for (let p of paragraphs) {
-    // Bold markdown (**text**)
     p = p.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
 
-    // TEACHER NAME
     if (/^Teacher:\s*/i.test(p)) {
       const name = p.replace(/^Teacher:\s*/i, "").trim();
       html += `<div class="teacher-name">👩‍🏫 <strong>${name}</strong></div>`;
       continue;
     }
 
-    // VERDICT
     if (/^Verdict:\s*/i.test(p)) {
       const v = p.replace(/^Verdict:\s*/i, "").trim();
       html += `<div class="teacher-verdict"><strong>Verdict: ${v}</strong></div>`;
       continue;
     }
 
-    // SECTION HEADINGS – only the label bold, rest normal
     const headingMatch = p.match(
       /^(On Teacher Performance:|Strengths:|Weaknesses:|Guidance:|Challenges:|Final Verdict:|Final Suggested Role:|Final Suggestion:)(.*)$/i
     );
     if (headingMatch) {
-      const label = headingMatch[1];        // e.g. "Strengths:"
-      const rest = headingMatch[2].trim();  // remaining sentence
+      const label = headingMatch[1];
+      const rest = headingMatch[2].trim();
       html += `<div class="section-heading"><strong>${label}</strong>${rest ? " " + rest : ""}</div>`;
       continue;
     }
 
-    // BULLET (lines starting with "- ")
     if (/^- /.test(p)) {
       const item = p.replace(/^- /, "").trim();
       html += `<div class="bullet">• ${item}</div>`;
       continue;
     }
 
-    // FALLBACK: normal paragraph
     html += `<div>${p}</div>`;
   }
 
@@ -259,7 +246,7 @@ const Dashboard = () => {
   const barChartRef = useRef(null);
   const lineChartRef = useRef(null);
 
-  // ✅ ADDED: store chart instances for resize
+  // store chart instances for resize
   const radarInstanceRef = useRef(null);
   const barInstanceRef = useRef(null);
   const lineInstanceRef = useRef(null);
@@ -399,7 +386,7 @@ const Dashboard = () => {
     setIsProcessingAI(false);
   };
 
-  // ✅ ADDED: Resize charts on window resize (Render/layout issue fix)
+  // Resize charts on window resize
   useEffect(() => {
     const onResize = () => {
       radarInstanceRef.current?.resize?.();
@@ -443,19 +430,21 @@ const Dashboard = () => {
     if (radarChartRef.current) {
       echarts.dispose(radarChartRef.current);
       const chart = echarts.init(radarChartRef.current);
-      radarInstanceRef.current = chart; // ✅ ADDED
+      radarInstanceRef.current = chart;
 
       chart.setOption({
         title: { text: "Teacher Skill Radar" },
         tooltip: { trigger: "item" },
-        // ✅ ADDED: legend scroll so all teachers show
+
         legend: {
           bottom: 0,
           type: "scroll",
           orient: "horizontal",
           data: names,
         },
+
         radar: {
+          radius: "62%", // ✅ BIGGER radar
           indicator: [
             { name: "Classroom", max: 5 },
             { name: "Differentiation", max: 5 },
@@ -465,13 +454,14 @@ const Dashboard = () => {
             { name: "Creative Arts", max: 5 },
           ],
         },
+
         series: radarScores.map((scores, i) => ({
           type: "radar",
           name: names[i],
           data: [scores],
           itemStyle: { color: colors[i % colors.length] },
-          lineStyle: { width: 2, color: colors[i % colors.length] }, // ✅ ADDED
-          areaStyle: { opacity: 0.1, color: colors[i % colors.length] }, // ✅ ADDED
+          lineStyle: { width: 2, color: colors[i % colors.length] },
+          areaStyle: { opacity: 0.12, color: colors[i % colors.length] },
         })),
       });
     }
@@ -480,28 +470,27 @@ const Dashboard = () => {
     if (barChartRef.current) {
       echarts.dispose(barChartRef.current);
       const chart = echarts.init(barChartRef.current);
-      barInstanceRef.current = chart; // ✅ ADDED
+      barInstanceRef.current = chart;
 
       chart.setOption({
-        title: { text: "Suitability Scores" },
+        title: { text: "Suitability Scores", left: "center" },
         tooltip: {
           trigger: "axis",
-          axisPointer: { type: "shadow" }, // ✅ ADDED
+          axisPointer: { type: "shadow" },
           formatter: (params) => {
             const p = params[0];
             return `${p.axisValue}<br/>Suitability Score: <b>${p.data}</b>`;
           },
         },
-        // ✅ ADDED: grid bottom space so ALL labels fit
-        grid: { left: 40, right: 20, top: 60, bottom: 110, containLabel: true },
+        grid: { left: 50, right: 30, top: 80, bottom: 140, containLabel: true }, // ✅ BIGGER usable area
         xAxis: {
           type: "category",
           data: names,
           axisTick: { alignWithLabel: true },
           axisLabel: {
-            interval: 0,        // ✅ show all names
-            rotate: 40,         // ✅ readable
-            hideOverlap: false, // ✅ do not auto-hide
+            interval: 0,
+            rotate: 40,
+            hideOverlap: false,
           },
         },
         yAxis: { type: "value" },
@@ -509,6 +498,7 @@ const Dashboard = () => {
           {
             type: "bar",
             data: suitability,
+            barWidth: "55%",
             itemStyle: {
               color: (p) => colors[p.dataIndex % colors.length],
             },
@@ -521,10 +511,10 @@ const Dashboard = () => {
     if (lineChartRef.current) {
       echarts.dispose(lineChartRef.current);
       const chart = echarts.init(lineChartRef.current);
-      lineInstanceRef.current = chart; // ✅ ADDED
+      lineInstanceRef.current = chart;
 
       chart.setOption({
-        title: { text: "Experience Years" },
+        title: { text: "Experience Years", left: "center" },
         tooltip: {
           trigger: "axis",
           formatter: (params) => {
@@ -532,15 +522,14 @@ const Dashboard = () => {
             return `${p.axisValue}<br/>Experience: <b>${p.data}</b> years`;
           },
         },
-        // ✅ ADDED: grid bottom space so ALL labels fit
-        grid: { left: 40, right: 20, top: 60, bottom: 110, containLabel: true },
+        grid: { left: 50, right: 30, top: 80, bottom: 140, containLabel: true }, // ✅ BIGGER usable area
         xAxis: {
           type: "category",
           data: names,
           axisLabel: {
-            interval: 0,        // ✅ show all names
-            rotate: 40,         // ✅ readable
-            hideOverlap: false, // ✅ do not auto-hide
+            interval: 0,
+            rotate: 40,
+            hideOverlap: false,
           },
         },
         yAxis: { type: "value" },
@@ -550,14 +539,13 @@ const Dashboard = () => {
             smooth: true,
             data: expYears,
             itemStyle: { color: "#4f46e5" },
-            symbolSize: 8,
+            symbolSize: 9,
             lineStyle: { width: 3 },
           },
         ],
       });
     }
 
-    // ✅ ADDED: force resize after options set
     setTimeout(() => {
       radarInstanceRef.current?.resize?.();
       barInstanceRef.current?.resize?.();
@@ -665,9 +653,10 @@ const Dashboard = () => {
                 {/* Charts */}
                 {Array.isArray(visualData) && visualData.length > 0 && (
                   <>
-                    <div ref={radarChartRef} style={{ height: 350, marginTop: 20 }} />
-                    <div ref={barChartRef} style={{ height: 320, marginTop: 30 }} />
-                    <div ref={lineChartRef} style={{ height: 320, marginTop: 30 }} />
+                    {/* ✅ Increased sizes */}
+                    <div ref={radarChartRef} style={{ height: 520, marginTop: 20 }} />
+                    <div ref={barChartRef} style={{ height: 460, marginTop: 40 }} />
+                    <div ref={lineChartRef} style={{ height: 460, marginTop: 40 }} />
                   </>
                 )}
 
