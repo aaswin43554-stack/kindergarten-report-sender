@@ -246,7 +246,6 @@ const Dashboard = () => {
   const barChartRef = useRef(null);
   const lineChartRef = useRef(null);
 
-  // store chart instances for resize
   const radarInstanceRef = useRef(null);
   const barInstanceRef = useRef(null);
   const lineInstanceRef = useRef(null);
@@ -331,19 +330,14 @@ const Dashboard = () => {
 
       let teachers = null;
 
-      // Case 1: {teachers:[...]} (your server returns this)
       if (Array.isArray(raw?.teachers)) {
         teachers = raw.teachers;
-      }
-      // Case 2: Array with multiple {teachers:[...]} items → flatten all
-      else if (Array.isArray(raw)) {
+      } else if (Array.isArray(raw)) {
         const collected = raw.flatMap((item) =>
           Array.isArray(item?.teachers) ? item.teachers : []
         );
         teachers = collected.length ? collected : raw;
-      }
-      // Case 3: {data:[...]}
-      else if (Array.isArray(raw?.data)) {
+      } else if (Array.isArray(raw?.data)) {
         teachers = raw.data;
       }
 
@@ -433,53 +427,51 @@ const Dashboard = () => {
       radarInstanceRef.current = chart;
 
       chart.setOption({
-  title: { text: "Teacher Skill Radar", left: "center" },
-  tooltip: { trigger: "item" },
+        title: { text: "Teacher Skill Radar", left: "center" },
+        tooltip: { trigger: "item" },
 
-  // ✅ Move legend to the right and keep it scrollable
-  legend: {
-    top: "middle",
-    right: 10,
-    orient: "vertical",
-    type: "scroll",
-    itemGap: 10,
-    textStyle: { fontSize: 12 },
-    data: names,
-  },
+        // ✅ Vertical legend + enough height to show all 10 (scroll if needed)
+        legend: {
+          top: "middle",
+          right: 10,
+          orient: "vertical",
+          type: "scroll",
+          height: "80%",
+          itemGap: 10,
+          textStyle: { fontSize: 12 },
+          data: names,
+        },
 
-  radar: {
-    // ✅ Give more room so labels don't collide with edges
-    radius: "48%",          // smaller radar = more space for labels
-    center: ["38%", "50%"], // push radar left so legend has space
+        radar: {
+          radius: "48%",
+          center: ["38%", "50%"],
 
-    // ✅ Radar label styling (fix overlap)
-    name: {
-      fontSize: 12,         // smaller text
-      color: "#333",
-      formatter: (name) => name.replace("-", "-\n"), // break long labels
-    },
+          name: {
+            fontSize: 12,
+            color: "#333",
+            formatter: (name) => name.replace("-", "-\n"),
+          },
+          nameGap: 18,
 
-    nameGap: 18,            // space between label and radar border
-    splitNumber: 5,
-    indicator: [
-      { name: "Classroom", max: 5 },
-      { name: "Differentiation", max: 5 },
-      { name: "Soc-Emotional", max: 5 },
-      { name: "Numeracy", max: 5 },
-      { name: "Fine Motor", max: 5 },
-      { name: "Creative Arts", max: 5 },
-    ],
-  },
+          indicator: [
+            { name: "Classroom", max: 5 },
+            { name: "Differentiation", max: 5 },
+            { name: "Soc-Emotional", max: 5 },
+            { name: "Numeracy", max: 5 },
+            { name: "Fine Motor", max: 5 },
+            { name: "Creative Arts", max: 5 },
+          ],
+        },
 
-  series: radarScores.map((scores, i) => ({
-    type: "radar",
-    name: names[i],
-    data: [scores],
-    lineStyle: { width: 2, color: colors[i % colors.length] },
-    itemStyle: { color: colors[i % colors.length] },
-    areaStyle: { opacity: 0.12, color: colors[i % colors.length] },
-  })),
-});
+        series: radarScores.map((scores, i) => ({
+          type: "radar",
+          name: names[i],
+          data: [scores],
+          lineStyle: { width: 2, color: colors[i % colors.length] },
+          itemStyle: { color: colors[i % colors.length] },
+          areaStyle: { opacity: 0.12, color: colors[i % colors.length] },
+        })),
+      });
     }
 
     // Bar
@@ -498,7 +490,7 @@ const Dashboard = () => {
             return `${p.axisValue}<br/>Suitability Score: <b>${p.data}</b>`;
           },
         },
-        grid: { left: 50, right: 30, top: 80, bottom: 140, containLabel: true }, // ✅ BIGGER usable area
+        grid: { left: 50, right: 30, top: 80, bottom: 140, containLabel: true },
         xAxis: {
           type: "category",
           data: names,
@@ -538,7 +530,7 @@ const Dashboard = () => {
             return `${p.axisValue}<br/>Experience: <b>${p.data}</b> years`;
           },
         },
-        grid: { left: 50, right: 30, top: 80, bottom: 140, containLabel: true }, // ✅ BIGGER usable area
+        grid: { left: 50, right: 30, top: 80, bottom: 140, containLabel: true },
         xAxis: {
           type: "category",
           data: names,
@@ -574,18 +566,16 @@ const Dashboard = () => {
   // -------------------------------------------------------------------------
   return (
     <>
-      <InlineStyles /> {/* Inject CSS */}
+      <InlineStyles />
       <Navbar onLogout={handleLogout} />
 
       <div className="dashboard-page">
         <div className="dashboard-container">
-
           <h1 className="dashboard-title">🎓 Kindergarten Teacher Dashboard</h1>
           <p className="dashboard-subtitle">
             Use the tabs below to send updates, view status, or run AI analysis.
           </p>
 
-          {/* TAB BUTTONS */}
           <div className="tabs">
             <button
               className={`tab-btn ${activeTab === "daily" ? "active" : ""}`}
@@ -616,9 +606,7 @@ const Dashboard = () => {
             </button>
           </div>
 
-          {/* TAB CONTENT */}
           <div className="dashboard-content">
-
             {activeTab === "daily" && (
               <div className="tab-panel">
                 <h3>📆 Daily Student Reports</h3>
@@ -666,17 +654,15 @@ const Dashboard = () => {
                   {isProcessingAI ? "⏳ Processing..." : "🚀 Generate AI Report"}
                 </button>
 
-                {/* Charts */}
                 {Array.isArray(visualData) && visualData.length > 0 && (
                   <>
-                    {/* ✅ Increased sizes */}
-                    <div ref={radarChartRef} style={{ height: 520, marginTop: 20 }} />
-                    <div ref={barChartRef} style={{ height: 460, marginTop: 40 }} />
-                    <div ref={lineChartRef} style={{ height: 460, marginTop: 40 }} />
+                    {/* BIG visuals */}
+                    <div ref={radarChartRef} style={{ height: 560, marginTop: 30 }} />
+                    <div ref={barChartRef} style={{ height: 480, marginTop: 40 }} />
+                    <div ref={lineChartRef} style={{ height: 480, marginTop: 40 }} />
                   </>
                 )}
 
-                {/* AI Text */}
                 {teacherReport?.output && (
                   <div
                     className="teacher-report-box"
@@ -688,7 +674,6 @@ const Dashboard = () => {
               </div>
             )}
 
-            {/* LOGS */}
             <div className="logs-section">
               <div className="logs-header">
                 <h3>Logs</h3>
@@ -716,7 +701,6 @@ const Dashboard = () => {
                 </ul>
               )}
             </div>
-
           </div>
         </div>
       </div>
