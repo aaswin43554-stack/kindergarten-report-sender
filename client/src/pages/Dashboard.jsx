@@ -165,7 +165,7 @@ const InlineStyles = () => (
 
   .section-heading {
     margin-top: 10px;
-    font-weight: 600;
+    font-weight: 700;
   }
   `}</style>
 );
@@ -173,16 +173,6 @@ const InlineStyles = () => (
 // -----------------------------------------------------------------------------
 // SMART Markdown → HTML converter for AI report
 // -----------------------------------------------------------------------------
-//
-// Goal:
-// - Treat **double newlines** as paragraph separators
-// - Collapse single newlines inside paragraphs into spaces (fix broken line-wrap)
-// - Paragraph types:
-//   * "Teacher: Name"   -> big teacher heading
-//   * "Verdict: X"      -> verdict line
-//   * "- something"     -> bullet line
-//   * "Strengths:" etc  -> bold subsection headers
-//
 const renderMarkdownAsHtml = (markdownText) => {
   if (!markdownText) return "";
 
@@ -225,12 +215,16 @@ const renderMarkdownAsHtml = (markdownText) => {
       continue;
     }
 
-    // SECTION HEADINGS (Strengths, Weaknesses, Guidance, Final Suggestion, etc.)
+    // SECTION HEADINGS – bold:
+    // On Teacher Performance, Strengths, Weaknesses, Guidance, Challenges, Final verdict/suggestion
     if (
+      /^On Teacher Performance:/i.test(p) ||
       /^Strengths:/i.test(p) ||
       /^Weaknesses:/i.test(p) ||
       /^Guidance/i.test(p) ||
       /^Challenges:/i.test(p) ||
+      /^Final Verdict/i.test(p) ||
+      /^Final Suggested Role/i.test(p) ||
       /^Final Suggestion/i.test(p)
     ) {
       html += `<div class="section-heading">${p}</div>`;
@@ -349,18 +343,34 @@ const Dashboard = () => {
 
       let teachers = null;
 
-      if (Array.isArray(raw) && raw[0]?.teachers) teachers = raw[0].teachers;
-      else if (raw.teachers) teachers = raw.teachers;
-      else if (Array.isArray(raw)) teachers = raw;
-      else if (Array.isArray(raw.data)) teachers = raw.data;
+      // Case 1: Array with multiple {teachers:[...]} items → flatten all
+      if (Array.isArray(raw)) {
+        const collected = raw.flatMap((item) =>
+          Array.isArray(item?.teachers) ? item.teachers : []
+        );
+        if (collected.length > 0) {
+          teachers = collected;
+        } else {
+          // Maybe it's already an array of teacher objects
+          teachers = raw;
+        }
+      }
+      // Case 2: {teachers:[...]}
+      else if (Array.isArray(raw?.teachers)) {
+        teachers = raw.teachers;
+      }
+      // Case 3: {data:[...]}
+      else if (Array.isArray(raw?.data)) {
+        teachers = raw.data;
+      }
 
-      if (!teachers) {
+      if (!teachers || teachers.length === 0) {
         appendLog("❌ Visual data missing or in wrong format.");
         return;
       }
 
       setVisualData(teachers);
-      appendLog("✅ Visual data loaded.");
+      appendLog(`✅ Visual data loaded for ${teachers.length} teachers.`);
     } catch {
       appendLog("❌ Error loading visual data.");
     }
@@ -428,7 +438,7 @@ const Dashboard = () => {
       const chart = echarts.init(radarChartRef.current);
       chart.setOption({
         title: { text: "Teacher Skill Radar" },
-        tooltip: {},
+        tooltip: { trigger: "item" },
         legend: { bottom: 0 },
         radar: {
           indicator: [
@@ -456,6 +466,13 @@ const Dashboard = () => {
       const chart = echarts.init(barChartRef.current);
       chart.setOption({
         title: { text: "Suitability Scores" },
+        tooltip: {
+          trigger: "axis",
+          formatter: (params) => {
+            const p = params[0];
+            return `${p.axisValue}<br/>Suitability Score: ${p.data}`;
+          },
+        },
         xAxis: { type: "category", data: names },
         yAxis: { type: "value" },
         series: [
@@ -476,6 +493,13 @@ const Dashboard = () => {
       const chart = echarts.init(lineChartRef.current);
       chart.setOption({
         title: { text: "Experience Years" },
+        tooltip: {
+          trigger: "axis",
+          formatter: (params) => {
+            const p = params[0];
+            return `${p.axisValue}<br/>Experience: ${p.data} years`;
+          },
+        },
         xAxis: { type: "category", data: names },
         yAxis: { type: "value" },
         series: [
@@ -484,6 +508,8 @@ const Dashboard = () => {
             smooth: true,
             data: expYears,
             itemStyle: { color: "#4f46e5" },
+            symbolSize: 8,
+            lineStyle: { width: 3 },
           },
         ],
       });
