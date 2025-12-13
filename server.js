@@ -434,8 +434,8 @@ const __dirname = path.dirname(__filename);
 const distPath = path.join(__dirname, "client", "dist");
 app.use(express.static(distPath));
 
-// ✅ Express 5 FIX: use "/*" instead of "*"
-app.get("/*", (req, res) => {
+// ✅ Express 5 SPA fallback (MUST use named wildcard parameter)
+app.get("/:path(*)", (req, res) => {
   res.sendFile(path.join(distPath, "index.html"));
 });
 
