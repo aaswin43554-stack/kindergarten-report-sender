@@ -48,6 +48,7 @@ const InlineStyles = () => (
     justify-content: center;
     gap: 10px;
     margin-bottom: 25px;
+    flex-wrap: wrap;
   }
 
   .tab-btn {
@@ -258,6 +259,11 @@ const Dashboard = () => {
   const barChartRef = useRef(null);
   const lineChartRef = useRef(null);
 
+  // ✅ ADDED: store chart instances for resize
+  const radarInstanceRef = useRef(null);
+  const barInstanceRef = useRef(null);
+  const lineInstanceRef = useRef(null);
+
   const appendLog = (msg) =>
     setLogs((prev) => [...prev, typeof msg === "string" ? msg : JSON.stringify(msg)]);
 
@@ -338,21 +344,16 @@ const Dashboard = () => {
 
       let teachers = null;
 
-      // Case 1: Array with multiple {teachers:[...]} items → flatten all
-      if (Array.isArray(raw)) {
+      // Case 1: {teachers:[...]} (your server returns this)
+      if (Array.isArray(raw?.teachers)) {
+        teachers = raw.teachers;
+      }
+      // Case 2: Array with multiple {teachers:[...]} items → flatten all
+      else if (Array.isArray(raw)) {
         const collected = raw.flatMap((item) =>
           Array.isArray(item?.teachers) ? item.teachers : []
         );
-        if (collected.length > 0) {
-          teachers = collected; // flatten
-        } else {
-          // Maybe it's already an array of teacher objects
-          teachers = raw;
-        }
-      }
-      // Case 2: {teachers:[...]}
-      else if (Array.isArray(raw?.teachers)) {
-        teachers = raw.teachers;
+        teachers = collected.length ? collected : raw;
       }
       // Case 3: {data:[...]}
       else if (Array.isArray(raw?.data)) {
@@ -398,9 +399,20 @@ const Dashboard = () => {
     setIsProcessingAI(false);
   };
 
+  // ✅ ADDED: Resize charts on window resize (Render/layout issue fix)
+  useEffect(() => {
+    const onResize = () => {
+      radarInstanceRef.current?.resize?.();
+      barInstanceRef.current?.resize?.();
+      lineInstanceRef.current?.resize?.();
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   // ---------------- ECHARTS ----------------
   useEffect(() => {
-    if (!visualData) return;
+    if (!visualData || !Array.isArray(visualData) || visualData.length === 0) return;
 
     const names = visualData.map((t) => t.name);
     const radarScores = visualData.map((t) => [
@@ -431,10 +443,18 @@ const Dashboard = () => {
     if (radarChartRef.current) {
       echarts.dispose(radarChartRef.current);
       const chart = echarts.init(radarChartRef.current);
+      radarInstanceRef.current = chart; // ✅ ADDED
+
       chart.setOption({
         title: { text: "Teacher Skill Radar" },
         tooltip: { trigger: "item" },
-        legend: { bottom: 0 },
+        // ✅ ADDED: legend scroll so all teachers show
+        legend: {
+          bottom: 0,
+          type: "scroll",
+          orient: "horizontal",
+          data: names,
+        },
         radar: {
           indicator: [
             { name: "Classroom", max: 5 },
@@ -450,7 +470,8 @@ const Dashboard = () => {
           name: names[i],
           data: [scores],
           itemStyle: { color: colors[i % colors.length] },
-          areaStyle: { opacity: 0.1 },
+          lineStyle: { width: 2, color: colors[i % colors.length] }, // ✅ ADDED
+          areaStyle: { opacity: 0.1, color: colors[i % colors.length] }, // ✅ ADDED
         })),
       });
     }
@@ -459,16 +480,30 @@ const Dashboard = () => {
     if (barChartRef.current) {
       echarts.dispose(barChartRef.current);
       const chart = echarts.init(barChartRef.current);
+      barInstanceRef.current = chart; // ✅ ADDED
+
       chart.setOption({
         title: { text: "Suitability Scores" },
         tooltip: {
           trigger: "axis",
+          axisPointer: { type: "shadow" }, // ✅ ADDED
           formatter: (params) => {
             const p = params[0];
-            return `${p.axisValue}<br/>Suitability Score: ${p.data}`;
+            return `${p.axisValue}<br/>Suitability Score: <b>${p.data}</b>`;
           },
         },
-        xAxis: { type: "category", data: names },
+        // ✅ ADDED: grid bottom space so ALL labels fit
+        grid: { left: 40, right: 20, top: 60, bottom: 110, containLabel: true },
+        xAxis: {
+          type: "category",
+          data: names,
+          axisTick: { alignWithLabel: true },
+          axisLabel: {
+            interval: 0,        // ✅ show all names
+            rotate: 40,         // ✅ readable
+            hideOverlap: false, // ✅ do not auto-hide
+          },
+        },
         yAxis: { type: "value" },
         series: [
           {
@@ -486,16 +521,28 @@ const Dashboard = () => {
     if (lineChartRef.current) {
       echarts.dispose(lineChartRef.current);
       const chart = echarts.init(lineChartRef.current);
+      lineInstanceRef.current = chart; // ✅ ADDED
+
       chart.setOption({
         title: { text: "Experience Years" },
         tooltip: {
           trigger: "axis",
           formatter: (params) => {
             const p = params[0];
-            return `${p.axisValue}<br/>Experience: ${p.data} years`;
+            return `${p.axisValue}<br/>Experience: <b>${p.data}</b> years`;
           },
         },
-        xAxis: { type: "category", data: names },
+        // ✅ ADDED: grid bottom space so ALL labels fit
+        grid: { left: 40, right: 20, top: 60, bottom: 110, containLabel: true },
+        xAxis: {
+          type: "category",
+          data: names,
+          axisLabel: {
+            interval: 0,        // ✅ show all names
+            rotate: 40,         // ✅ readable
+            hideOverlap: false, // ✅ do not auto-hide
+          },
+        },
         yAxis: { type: "value" },
         series: [
           {
@@ -509,6 +556,13 @@ const Dashboard = () => {
         ],
       });
     }
+
+    // ✅ ADDED: force resize after options set
+    setTimeout(() => {
+      radarInstanceRef.current?.resize?.();
+      barInstanceRef.current?.resize?.();
+      lineInstanceRef.current?.resize?.();
+    }, 50);
   }, [visualData]);
 
   // -------------------------------------------------------------------------
@@ -609,11 +663,11 @@ const Dashboard = () => {
                 </button>
 
                 {/* Charts */}
-                {visualData && (
+                {Array.isArray(visualData) && visualData.length > 0 && (
                   <>
                     <div ref={radarChartRef} style={{ height: 350, marginTop: 20 }} />
-                    <div ref={barChartRef} style={{ height: 300, marginTop: 30 }} />
-                    <div ref={lineChartRef} style={{ height: 300, marginTop: 30 }} />
+                    <div ref={barChartRef} style={{ height: 320, marginTop: 30 }} />
+                    <div ref={lineChartRef} style={{ height: 320, marginTop: 30 }} />
                   </>
                 )}
 
