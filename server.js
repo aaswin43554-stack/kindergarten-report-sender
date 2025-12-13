@@ -281,7 +281,7 @@ app.post("/api/teacher-analysis-report", async (req, res) => {
 
     const text = await response.text();
 
-    // handle both JSON and plain text
+    // Accept both JSON and plain text from n8n
     try {
       return res.json(JSON.parse(text));
     } catch {
@@ -316,7 +316,7 @@ app.get("/api/teacher-visual", async (req, res) => {
 
       let teachers = [];
 
-      // CASE 1: [{ teachers:[...] }, { teachers:[...] }]
+      // CASE 1: [{ teachers:[...] }, { teachers:[...] }]  -> flatten all
       if (Array.isArray(raw)) {
         raw.forEach((item) => {
           if (Array.isArray(item?.teachers)) {
@@ -342,7 +342,7 @@ app.get("/api/teacher-visual", async (req, res) => {
 
       console.log(`✅ Visual teachers count: ${teachers.length}`);
 
-      // 🔥 Always return consistent format
+      // ✅ Always return consistent format
       return res.json({ teachers });
     } catch (err) {
       console.error("Teacher visual webhook error:", err.message);
@@ -352,7 +352,7 @@ app.get("/api/teacher-visual", async (req, res) => {
     console.warn("N8N_TEACHER_VISUAL_URL not set, using sample data.");
   }
 
-  // FALLBACK SAMPLE DATA (unchanged, but in same shape)
+  // FALLBACK SAMPLE DATA (same format)
   return res.json({
     teachers: [
       {
@@ -426,7 +426,7 @@ app.get("/api/teacher-visual", async (req, res) => {
 });
 
 // =======================================================
-// SERVE FRONTEND BUILD
+// SERVE FRONTEND BUILD (EXPRESS 5 SAFE)
 // =======================================================
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -434,11 +434,11 @@ const __dirname = path.dirname(__filename);
 const distPath = path.join(__dirname, "client", "dist");
 app.use(express.static(distPath));
 
-// ✅ Express 5 SPA fallback (MUST use named wildcard parameter)
-app.get("/:path(*)", (req, res) => {
+// ✅ Express 5 safe SPA fallback using REGEX
+// This avoids path-to-regexp wildcard crashes.
+app.get(/^(?!\/api|\/send|\/send-menu|\/student-status).*/, (req, res) => {
   res.sendFile(path.join(distPath, "index.html"));
 });
-
 
 // =======================================================
 // START SERVER
