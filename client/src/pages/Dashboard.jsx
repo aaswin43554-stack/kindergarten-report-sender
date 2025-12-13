@@ -433,37 +433,50 @@ const Dashboard = () => {
       radarInstanceRef.current = chart;
 
       chart.setOption({
-        title: { text: "Teacher Skill Radar" },
-        tooltip: { trigger: "item" },
+  title: { text: "Teacher Skill Radar" },
+  tooltip: { trigger: "item" },
 
-        legend: {
-          bottom: 0,
-          type: "scroll",
-          orient: "horizontal",
-          data: names,
-        },
+  legend: {
+    top: "middle",
+    right: 10,
+    orient: "vertical",
+    type: "scroll",
+    itemGap: 12,
+    textStyle: {
+      fontSize: 12,
+    },
+    data: names,
+  },
 
-        radar: {
-          radius: "62%", // ✅ BIGGER radar
-          indicator: [
-            { name: "Classroom", max: 5 },
-            { name: "Differentiation", max: 5 },
-            { name: "Soc-Emotional", max: 5 },
-            { name: "Numeracy", max: 5 },
-            { name: "Fine Motor", max: 5 },
-            { name: "Creative Arts", max: 5 },
-          ],
-        },
+  radar: {
+    radius: "60%",
+    indicator: [
+      { name: "Classroom", max: 5 },
+      { name: "Differentiation", max: 5 },
+      { name: "Soc-Emotional", max: 5 },
+      { name: "Numeracy", max: 5 },
+      { name: "Fine Motor", max: 5 },
+      { name: "Creative Arts", max: 5 },
+    ],
+  },
 
-        series: radarScores.map((scores, i) => ({
-          type: "radar",
-          name: names[i],
-          data: [scores],
-          itemStyle: { color: colors[i % colors.length] },
-          lineStyle: { width: 2, color: colors[i % colors.length] },
-          areaStyle: { opacity: 0.12, color: colors[i % colors.length] },
-        })),
-      });
+  series: radarScores.map((scores, i) => ({
+    type: "radar",
+    name: names[i],
+    data: [scores],
+    lineStyle: {
+      width: 2,
+      color: colors[i % colors.length],
+    },
+    itemStyle: {
+      color: colors[i % colors.length],
+    },
+    areaStyle: {
+      opacity: 0.12,
+      color: colors[i % colors.length],
+    },
+  })),
+});
     }
 
     // Bar
