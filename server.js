@@ -32,49 +32,74 @@ const auth = new google.auth.GoogleAuth({
   keyFile: "credentials.json", // service account key file
   scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
 });
-
 const sheets = google.sheets({ version: "v4", auth });
 
 // =======================================================
-// SUPABASE CONFIGURATION
+// SUPABASE CONFIGURATION (optional, only if envs exist)
 // =======================================================
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+let supabase = null;
+if (process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
+  supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+}
 
 // =======================================================
-// ROUTE: GET STUDENT REPORT STATUS (FROM SUPABASE)
+// ROUTE: GET STUDENT REPORT STATUS
+//   1. Try Supabase ("Student data storing final")
+//   2. If not configured / error → try n8n webhook
 // =======================================================
 app.get("/student-status", async (req, res) => {
-  try {
-    // Fetch the first row from 'Student data storing final' table
-    const { data, error } = await supabase
-      .from("Student data storing final")
-      .select("*")
-      .limit(1)
-      .single();
+  // 1) Supabase path (if configured)
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from("Student data storing final")
+        .select("*")
+        .limit(1)
+        .single();
 
-    if (error) throw error;
+      if (error) throw error;
 
-    if (!data) {
-      return res.json({ message: "⚠️ No data found in Supabase." });
+      if (!data) {
+        return res.json({ message: "⚠️ No data found in Supabase." });
+      }
+
+      const statusMessage =
+        data.message || data.status || data.report || JSON.stringify(data);
+      return res.json({ message: statusMessage });
+    } catch (err) {
+      console.error("Supabase /student-status error:", err.message);
+      // fall through to webhook if configured
     }
-
-    // Choose a useful field or fallback to the whole row
-    const statusMessage =
-      data.message || data.status || data.report || JSON.stringify(data);
-
-    res.json({ message: statusMessage });
-  } catch (error) {
-    console.error("Supabase Error:", error);
-    res
-      .status(500)
-      .json({ message: `❌ Error fetching status: ${error.message}` });
   }
+
+  // 2) n8n webhook fallback
+  if (process.env.N8N_STUDENT_REPORT_WEBHOOK_URL) {
+    try {
+      const resp = await fetch(process.env.N8N_STUDENT_REPORT_WEBHOOK_URL);
+      const text = await resp.text();
+
+      try {
+        return res.json(JSON.parse(text));
+      } catch {
+        return res.json({ message: text });
+      }
+    } catch (err) {
+      console.error("Webhook /student-status error:", err.message);
+      return res
+        .status(500)
+        .json({ message: "❌ Error fetching student status." });
+    }
+  }
+
+  // 3) Nothing configured
+  return res.json({
+    message:
+      "⚠️ No student status backend configured (no Supabase or N8N env vars).",
+  });
 });
 
 // =======================================================
-// ROUTE: SEND DAILY REPORTS
+// ROUTE: SEND DAILY REPORTS (SSE)
 // =======================================================
 app.get("/send", async (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
@@ -140,7 +165,9 @@ Your child had a wonderful day at school today! 💖
 - The Kindergarten Team 🏫✨
         `;
 
-      sendLog(`➡️ Sending message to ${phone} (${studentName || "Unknown"})...`);
+      sendLog(
+        `➡️ Sending message to ${phone} (${studentName || "Unknown"})...`
+      );
 
       try {
         await client.messages.create({
@@ -165,7 +192,7 @@ Your child had a wonderful day at school today! 💖
 });
 
 // =======================================================
-// ROUTE: SEND WEEKLY MENU (ONE MESSAGE TO ALL PARENTS)
+// ROUTE: SEND WEEKLY MENU (SSE, one message to all parents)
 // =======================================================
 app.get("/send-menu", async (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
@@ -192,7 +219,6 @@ app.get("/send-menu", async (req, res) => {
       return res.end();
     }
 
-    // Prepare the table of day + food
     let menuTable = "*🍽 Weekly Food Menu 🍽*\n\n";
     menuTable += "📅 *Day* — *Menu*\n";
     menuTable += "──────────────────────\n";
@@ -202,7 +228,6 @@ app.get("/send-menu", async (req, res) => {
     }
     menuTable += "\nHave a delicious week ahead! 😋\n- Kindergarten Team 🏫✨";
 
-    // Collect unique phone numbers from column C
     const phones = [...new Set(rows.map((r) => r[2]).filter(Boolean))];
 
     sendLog(
@@ -234,17 +259,21 @@ app.get("/send-menu", async (req, res) => {
 });
 
 // =======================================================
-// AI TEACHER ANALYSIS TEXT REPORT (n8n webhook)
+// ROUTE: AI TEACHER ANALYSIS TEXT REPORT (n8n webhook)
 // =======================================================
 app.post("/api/teacher-analysis-report", async (req, res) => {
-  try {
-    const webhook = process.env.N8N_TEACHER_REPORT_WEBHOOK_URL;
-    if (!webhook) {
-      return res
-        .status(500)
-        .json({ error: "N8N_TEACHER_REPORT_WEBHOOK_URL is not set" });
-    }
+  const webhook = process.env.N8N_TEACHER_REPORT_WEBHOOK_URL;
 
+  if (!webhook) {
+    console.warn("N8N_TEACHER_REPORT_WEBHOOK_URL is not set.");
+    // Optional: return a demo report so UI shows something
+    return res.json({
+      output:
+        "Demo teacher report.\n\nTeacher: Anita Kapoor\nVerdict: Suitable\nStrengths:\n- Example strength\nWeaknesses:\n- Example weakness",
+    });
+  }
+
+  try {
     const response = await fetch(webhook, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -254,31 +283,112 @@ app.post("/api/teacher-analysis-report", async (req, res) => {
     const json = await response.json();
     return res.json(json);
   } catch (err) {
-    console.error("Teacher report error:", err);
+    console.error("Teacher analysis webhook error:", err.message);
     return res.status(500).json({ error: err.message });
   }
 });
 
 // =======================================================
-// TEACHER VISUAL CHART DATA (n8n webhook)
+// ROUTE: TEACHER VISUAL CHART DATA
+//   1. Try n8n webhook
+//   2. On error / missing env → return sample data
 // =======================================================
 app.get("/api/teacher-visual", async (req, res) => {
-  try {
-    const webhook = process.env.N8N_TEACHER_VISUAL_URL;
-    if (!webhook) {
-      return res
-        .status(500)
-        .json({ error: "N8N_TEACHER_VISUAL_URL is not set" });
+  const webhook = process.env.N8N_TEACHER_VISUAL_URL;
+
+  if (webhook) {
+    try {
+      const response = await fetch(webhook);
+      const text = await response.text();
+
+      try {
+        const json = JSON.parse(text);
+        return res.json(json);
+      } catch (err) {
+        console.error("Teacher visual JSON parse error:", err.message);
+        // fall through to sample data
+      }
+    } catch (err) {
+      console.error("Teacher visual webhook error:", err.message);
+      // fall through to sample data
     }
-
-    const response = await fetch(webhook);
-    const json = await response.json();
-
-    return res.json(json);
-  } catch (err) {
-    console.error("Teacher visual error:", err);
-    return res.status(500).json({ error: err.message });
+  } else {
+    console.warn("N8N_TEACHER_VISUAL_URL not set, using sample data.");
   }
+
+  // SAMPLE DATA (used when webhook missing / failing)
+  return res.json([
+    {
+      teachers: [
+        {
+          name: "Anita Kapoor",
+          classroomManagement: 4,
+          differentiateInstruction: 5,
+          socialEmotional: 4,
+          numeracy: 3,
+          fineMotor: 4,
+          creativeArts: 5,
+          suitabilityScore: 72,
+          experienceYears: 2,
+        },
+        {
+          name: "Rahul Sinha",
+          classroomManagement: 5,
+          differentiateInstruction: 4,
+          socialEmotional: 5,
+          numeracy: 4,
+          fineMotor: 3,
+          creativeArts: 4,
+          suitabilityScore: 92,
+          experienceYears: 7,
+        },
+        {
+          name: "Zara Menon",
+          classroomManagement: 3,
+          differentiateInstruction: 4,
+          socialEmotional: 3,
+          numeracy: 4,
+          fineMotor: 4,
+          creativeArts: 3,
+          suitabilityScore: 76,
+          experienceYears: 5,
+        },
+        {
+          name: "Jacob Fernandes",
+          classroomManagement: 2,
+          differentiateInstruction: 3,
+          socialEmotional: 2,
+          numeracy: 3,
+          fineMotor: 2,
+          creativeArts: 3,
+          suitabilityScore: 62,
+          experienceYears: 1,
+        },
+        {
+          name: "Meera Iyer",
+          classroomManagement: 4,
+          differentiateInstruction: 4,
+          socialEmotional: 5,
+          numeracy: 4,
+          fineMotor: 5,
+          creativeArts: 4,
+          suitabilityScore: 88,
+          experienceYears: 6,
+        },
+        {
+          name: "Kunal Verma",
+          classroomManagement: 3,
+          differentiateInstruction: 3,
+          socialEmotional: 4,
+          numeracy: 3,
+          fineMotor: 3,
+          creativeArts: 4,
+          suitabilityScore: 70,
+          experienceYears: 3,
+        },
+      ],
+    },
+  ]);
 });
 
 // =======================================================
@@ -301,5 +411,5 @@ const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log("✨ /api/teacher-visual ready");
+  console.log("✨ /api/teacher-visual and /student-status ready");
 });
