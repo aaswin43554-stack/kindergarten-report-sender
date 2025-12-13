@@ -215,19 +215,14 @@ const renderMarkdownAsHtml = (markdownText) => {
       continue;
     }
 
-    // SECTION HEADINGS – bold:
-    // On Teacher Performance, Strengths, Weaknesses, Guidance, Challenges, Final verdict/suggestion
-    if (
-      /^On Teacher Performance:/i.test(p) ||
-      /^Strengths:/i.test(p) ||
-      /^Weaknesses:/i.test(p) ||
-      /^Guidance/i.test(p) ||
-      /^Challenges:/i.test(p) ||
-      /^Final Verdict/i.test(p) ||
-      /^Final Suggested Role/i.test(p) ||
-      /^Final Suggestion/i.test(p)
-    ) {
-      html += `<div class="section-heading">${p}</div>`;
+    // SECTION HEADINGS – only the label bold, rest normal
+    const headingMatch = p.match(
+      /^(On Teacher Performance:|Strengths:|Weaknesses:|Guidance:|Challenges:|Final Verdict:|Final Suggested Role:|Final Suggestion:)(.*)$/i
+    );
+    if (headingMatch) {
+      const label = headingMatch[1];        // e.g. "Strengths:"
+      const rest = headingMatch[2].trim();  // remaining sentence
+      html += `<div class="section-heading"><strong>${label}</strong>${rest ? " " + rest : ""}</div>`;
       continue;
     }
 
@@ -349,7 +344,7 @@ const Dashboard = () => {
           Array.isArray(item?.teachers) ? item.teachers : []
         );
         if (collected.length > 0) {
-          teachers = collected;
+          teachers = collected; // flatten
         } else {
           // Maybe it's already an array of teacher objects
           teachers = raw;
