@@ -266,7 +266,6 @@ app.post("/api/teacher-analysis-report", async (req, res) => {
 
   if (!webhook) {
     console.warn("N8N_TEACHER_REPORT_WEBHOOK_URL is not set.");
-    // Optional: return a demo report so UI shows something
     return res.json({
       output:
         "Demo teacher report.\n\nTeacher: Anita Kapoor\nVerdict: Suitable\nStrengths:\n- Example strength\nWeaknesses:\n- Example weakness",
@@ -280,8 +279,14 @@ app.post("/api/teacher-analysis-report", async (req, res) => {
       body: JSON.stringify(req.body),
     });
 
-    const json = await response.json();
-    return res.json(json);
+    const text = await response.text();
+
+    // handle both JSON and plain text
+    try {
+      return res.json(JSON.parse(text));
+    } catch {
+      return res.json({ output: text });
+    }
   } catch (err) {
     console.error("Teacher analysis webhook error:", err.message);
     return res.status(500).json({ error: err.message });
@@ -290,8 +295,8 @@ app.post("/api/teacher-analysis-report", async (req, res) => {
 
 // =======================================================
 // ROUTE: TEACHER VISUAL CHART DATA
-//   1. Try n8n webhook
-//   2. On error / missing env → return sample data
+// ✅ Essential fix: FLATTEN teachers from webhook so ALL teachers appear
+// Always return same shape: { teachers: [...] }
 // =======================================================
 app.get("/api/teacher-visual", async (req, res) => {
   const webhook = process.env.N8N_TEACHER_VISUAL_URL;
@@ -301,13 +306,44 @@ app.get("/api/teacher-visual", async (req, res) => {
       const response = await fetch(webhook);
       const text = await response.text();
 
+      let raw;
       try {
-        const json = JSON.parse(text);
-        return res.json(json);
+        raw = JSON.parse(text);
       } catch (err) {
         console.error("Teacher visual JSON parse error:", err.message);
-        // fall through to sample data
+        throw new Error("Invalid JSON from visual webhook");
       }
+
+      let teachers = [];
+
+      // CASE 1: [{ teachers:[...] }, { teachers:[...] }]
+      if (Array.isArray(raw)) {
+        raw.forEach((item) => {
+          if (Array.isArray(item?.teachers)) {
+            teachers.push(...item.teachers);
+          }
+        });
+
+        // CASE 2: raw is already array of teacher objects
+        if (teachers.length === 0 && raw.length && raw[0]?.name) {
+          teachers = raw;
+        }
+      }
+
+      // CASE 3: { teachers:[...] }
+      if (Array.isArray(raw?.teachers)) {
+        teachers = raw.teachers;
+      }
+
+      if (!teachers.length) {
+        console.warn("⚠️ No teachers found in visual webhook response");
+        throw new Error("No teacher data");
+      }
+
+      console.log(`✅ Visual teachers count: ${teachers.length}`);
+
+      // 🔥 Always return consistent format
+      return res.json({ teachers });
     } catch (err) {
       console.error("Teacher visual webhook error:", err.message);
       // fall through to sample data
@@ -316,79 +352,77 @@ app.get("/api/teacher-visual", async (req, res) => {
     console.warn("N8N_TEACHER_VISUAL_URL not set, using sample data.");
   }
 
-  // SAMPLE DATA (used when webhook missing / failing)
-  return res.json([
-    {
-      teachers: [
-        {
-          name: "Anita Kapoor",
-          classroomManagement: 4,
-          differentiateInstruction: 5,
-          socialEmotional: 4,
-          numeracy: 3,
-          fineMotor: 4,
-          creativeArts: 5,
-          suitabilityScore: 72,
-          experienceYears: 2,
-        },
-        {
-          name: "Rahul Sinha",
-          classroomManagement: 5,
-          differentiateInstruction: 4,
-          socialEmotional: 5,
-          numeracy: 4,
-          fineMotor: 3,
-          creativeArts: 4,
-          suitabilityScore: 92,
-          experienceYears: 7,
-        },
-        {
-          name: "Zara Menon",
-          classroomManagement: 3,
-          differentiateInstruction: 4,
-          socialEmotional: 3,
-          numeracy: 4,
-          fineMotor: 4,
-          creativeArts: 3,
-          suitabilityScore: 76,
-          experienceYears: 5,
-        },
-        {
-          name: "Jacob Fernandes",
-          classroomManagement: 2,
-          differentiateInstruction: 3,
-          socialEmotional: 2,
-          numeracy: 3,
-          fineMotor: 2,
-          creativeArts: 3,
-          suitabilityScore: 62,
-          experienceYears: 1,
-        },
-        {
-          name: "Meera Iyer",
-          classroomManagement: 4,
-          differentiateInstruction: 4,
-          socialEmotional: 5,
-          numeracy: 4,
-          fineMotor: 5,
-          creativeArts: 4,
-          suitabilityScore: 88,
-          experienceYears: 6,
-        },
-        {
-          name: "Kunal Verma",
-          classroomManagement: 3,
-          differentiateInstruction: 3,
-          socialEmotional: 4,
-          numeracy: 3,
-          fineMotor: 3,
-          creativeArts: 4,
-          suitabilityScore: 70,
-          experienceYears: 3,
-        },
-      ],
-    },
-  ]);
+  // FALLBACK SAMPLE DATA (unchanged, but in same shape)
+  return res.json({
+    teachers: [
+      {
+        name: "Anita Kapoor",
+        classroomManagement: 4,
+        differentiateInstruction: 5,
+        socialEmotional: 4,
+        numeracy: 3,
+        fineMotor: 4,
+        creativeArts: 5,
+        suitabilityScore: 72,
+        experienceYears: 2,
+      },
+      {
+        name: "Rahul Sinha",
+        classroomManagement: 5,
+        differentiateInstruction: 4,
+        socialEmotional: 5,
+        numeracy: 4,
+        fineMotor: 3,
+        creativeArts: 4,
+        suitabilityScore: 92,
+        experienceYears: 7,
+      },
+      {
+        name: "Zara Menon",
+        classroomManagement: 3,
+        differentiateInstruction: 4,
+        socialEmotional: 3,
+        numeracy: 4,
+        fineMotor: 4,
+        creativeArts: 3,
+        suitabilityScore: 76,
+        experienceYears: 5,
+      },
+      {
+        name: "Jacob Fernandes",
+        classroomManagement: 2,
+        differentiateInstruction: 3,
+        socialEmotional: 2,
+        numeracy: 3,
+        fineMotor: 2,
+        creativeArts: 3,
+        suitabilityScore: 62,
+        experienceYears: 1,
+      },
+      {
+        name: "Meera Iyer",
+        classroomManagement: 4,
+        differentiateInstruction: 4,
+        socialEmotional: 5,
+        numeracy: 4,
+        fineMotor: 5,
+        creativeArts: 4,
+        suitabilityScore: 88,
+        experienceYears: 6,
+      },
+      {
+        name: "Kunal Verma",
+        classroomManagement: 3,
+        differentiateInstruction: 3,
+        socialEmotional: 4,
+        numeracy: 3,
+        fineMotor: 3,
+        creativeArts: 4,
+        suitabilityScore: 70,
+        experienceYears: 3,
+      },
+    ],
+  });
 });
 
 // =======================================================
@@ -400,7 +434,8 @@ const __dirname = path.dirname(__filename);
 const distPath = path.join(__dirname, "client", "dist");
 app.use(express.static(distPath));
 
-app.get("/", (req, res) => {
+// SPA fallback so refresh works on /dashboard etc.
+app.get("*", (req, res) => {
   res.sendFile(path.join(distPath, "index.html"));
 });
 
