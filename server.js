@@ -152,9 +152,28 @@ const splitBullets = (s) =>
 // "1. Kamesh S - MEDIUM"
 // "1. Kamesh S - LOW"
 const parseHeader = (block) => {
-  const headerMatch = block.match(
-    /^\s*\d+\.\s*([^\n—-]+?)\s*(?:—|-)\s*(HIGH|MEDIUM|LOW)\s*(?:RISK)?/im
-  );
+  const headerPatterns = [
+  // 1) "1. Name - HIGH RISK"
+  /^\s*\d+\.\s*([^\n—-]+?)\s*(?:—|-)\s*(HIGH|MEDIUM|LOW)\s*(?:RISK)?/im,
+
+  // 2) "Name: Kamesh S" and later "Risk: HIGH"
+  /Name\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/im,
+
+  // 3) "Student: Kamesh S" and later "Risk: HIGH"
+  /Student\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/im,
+];
+
+let head = null;
+for (const re of headerPatterns) {
+  const m = b.match(re);
+  if (m) {
+    head = { name: m[1].trim(), risk_level: normalizeRisk(m[2]) };
+    break;
+  }
+}
+
+if (!head) return null; // ✅ don't create fake Student 1..5
+
   if (!headerMatch) return null;
 
   return {
@@ -387,9 +406,29 @@ app.get("/student-status-full", async (req, res) => {
         .replace(/\r\n/g, "\n")
         .replace(/[ \t]+/g, " ")
         .trim();
+      
+       // ✅ Split into blocks using MULTIPLE patterns:
+// 1) "1. " numbered
+// 2) "Student:" sections
+// 3) "Name:" sections
+// 4) fallback: split by blank lines
+let studentBlocks = [];
 
-      const blocks = text.split(/\s(?=\d+\.\s)/g).filter(Boolean);
-      const studentBlocks = blocks.length ? blocks : [text];
+if (/\n\s*\d+\.\s+/.test(text)) {
+  studentBlocks = text.split(/\n(?=\s*\d+\.\s+)/g);
+} else if (/Student\s*:/i.test(text)) {
+  studentBlocks = text.split(/(?=Student\s*:)/gi);
+} else if (/Name\s*:/i.test(text)) {
+  studentBlocks = text.split(/(?=Name\s*:)/gi);
+} else if (/\n\s*\n/.test(text)) {
+  studentBlocks = text.split(/\n\s*\n+/g);
+} else {
+  // last fallback: treat whole thing as one block
+  studentBlocks = [text];
+}
+
+studentBlocks = studentBlocks.map((s) => s.trim()).filter(Boolean);
+
 
       const splitBullets = (s) =>
         String(s || "")
@@ -497,6 +536,10 @@ app.get("/student-status-full", async (req, res) => {
     if (!response.ok) throw new Error(`N8N responded with ${response.status}`);
 
     const rawText = await response.text();
+    console.log("----- STUDENT STATUS RAW START -----");
+console.log(rawText);
+console.log("----- STUDENT STATUS RAW END -----");
+
 
     let raw;
     try {
