@@ -47,11 +47,42 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
 // - 2) Fallback to n8n webhook
 // - Always returns: { message, students, charts, summary }
 // =======================================================
+// =======================================================
+// ROUTE: STUDENT STATUS (TEXT ONLY -> ordered message)
+// =======================================================
 app.get("/student-status", async (req, res) => {
   try {
-    // -----------------------------
-    // Helpers
-    // -----------------------------
+    const webhook =
+      process.env.N8N_STUDENT_STATUS_TEXT_URL ||
+      "https://myaidesigntools.app.n8n.cloud/webhook/module-2_latest";
+
+    console.log("📊 Fetching student status TEXT from N8N...", webhook);
+
+    const response = await fetch(webhook);
+    if (!response.ok) throw new Error(`N8N responded with ${response.status}`);
+
+    const rawText = await response.text();
+
+    // Try JSON first, else plain text
+    let raw;
+    try {
+      raw = JSON.parse(rawText);
+    } catch {
+      raw = rawText;
+    }
+
+    // Extract message text from common fields
+    const analysisText =
+      (typeof raw === "string" && raw) ||
+      raw?.message ||
+      raw?.output ||
+      raw?.result ||
+      raw?.data ||
+      JSON.stringify(raw);
+
+    // Keep newlines (important)
+    const text = String(analysisText || "").replace(/\r\n/g, "\n").trim();
+
     const normalizeRisk = (s) => {
       if (!s) return "UNKNOWN";
       const up = String(s).toUpperCase();
@@ -63,49 +94,115 @@ app.get("/student-status", async (req, res) => {
 
     const riskOrder = { HIGH: 0, MEDIUM: 1, LOW: 2, UNKNOWN: 9 };
 
-    const buildResponse = (students) => {
-      // sort ordered
-      students.sort((a, b) => {
-        const ao = riskOrder[a.risk_level] ?? 9;
-        const bo = riskOrder[b.risk_level] ?? 9;
-        if (ao !== bo) return ao - bo;
-        return (b.risk_score ?? 0) - (a.risk_score ?? 0);
-      });
+    // split by "1. " style blocks (works even if it’s one paragraph)
+    const blocks = text.split(/(?=\d+\.\s)/g).filter(Boolean);
+    const studentBlocks = blocks.length ? blocks : [text];
 
-      // charts
-      const riskCounts = { HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0 };
-      const riskScores = students.map((s) => ({
-        name: s.name,
-        score: s.risk_score || 0,
-        risk: s.risk_level,
-      }));
+    const splitBullets = (s) =>
+      String(s || "")
+        .replace(/\s+/g, " ")
+        .split(/(?:\s*[•\-]\s+|\s*\d+\.\s+|\s*\d+\)\s+|;\s+|,\s+|\.\s+(?=[A-Z]))/)
+        .map((x) => x.trim())
+        .filter((x) => x && x.length > 2)
+        .slice(0, 8);
 
-      for (const s of students) {
-        riskCounts[s.risk_level] = (riskCounts[s.risk_level] || 0) + 1;
-      }
+    let students = studentBlocks.map((block, idx) => {
+      const b = block.trim();
 
-      // ordered message for logs
-      const message = [
-        "📌 Student Risk Report (Ordered)",
-        "",
-        ...students.map((s, i) => {
-          const reasons = s.reasons?.length
-            ? `Reasons: ${s.reasons.join(", ")}`
-            : "Reasons: N/A";
-          const recs = s.recommendations?.length
-            ? `Recommendations: ${s.recommendations.join(", ")}`
-            : "Recommendations: N/A";
-          return `${i + 1}. ${s.name} — ${s.risk_level} (Score: ${s.risk_score})\n   ${reasons}\n   ${recs}`;
-        }),
-      ].join("\n");
+      const head = b.match(/(?:\d+\.\s*)?(.+?)\s*-\s*(HIGH|MEDIUM|LOW)\s*RISK/i);
+      const name = (head?.[1] || `Student ${idx + 1}`).trim();
+      const risk_level = normalizeRisk(head?.[2] || "UNKNOWN");
 
-      return {
-        summary: "Student risk assessment generated.",
-        message,
-        students,
-        charts: { riskCounts, riskScores },
-      };
-    };
+      const reasonsMatch = b.match(
+        /Reasons?\s*[:\-]\s*(.*?)(?=\s*(Recommendations?|General Notes|Notes|$))/is
+      );
+      const recMatch = b.match(
+        /Recommendations?\s*[:\-]\s*(.*?)(?=\s*(General Notes|Notes|$))/is
+      );
+
+      const reasons = splitBullets(reasonsMatch?.[1] || "");
+      const recommendations = splitBullets(recMatch?.[1] || "");
+
+      const risk_score =
+        risk_level === "HIGH" ? 80 :
+        risk_level === "MEDIUM" ? 55 :
+        risk_level === "LOW" ? 25 : 0;
+
+      return { id: String(idx), name, risk_level, risk_score, reasons, recommendations };
+    });
+
+    // don’t filter too aggressively
+    students = students.filter((s) => s.name && s.name.length > 1);
+
+    students.sort((a, b) => {
+      const ao = riskOrder[a.risk_level] ?? 9;
+      const bo = riskOrder[b.risk_level] ?? 9;
+      if (ao !== bo) return ao - bo;
+      return (b.risk_score ?? 0) - (a.risk_score ?? 0);
+    });
+
+    const message = [
+      "📌 Student Risk Report (Ordered)",
+      "",
+      ...students.map((s, i) => {
+        const reasonsText = s.reasons.length ? s.reasons.join(", ") : "N/A";
+        const recText = s.recommendations.length ? s.recommendations.join(", ") : "N/A";
+        return `${i + 1}. ${s.name} — ${s.risk_level} (Score: ${s.risk_score})\n   Reasons: ${reasonsText}\n   Recommendations: ${recText}`;
+      }),
+    ].join("\n");
+
+    return res.json({
+      summary: "Student risk assessment generated.",
+      message,
+      students,
+      rawText, // helpful for debugging
+    });
+  } catch (err) {
+    console.error("❌ Student status error:", err);
+    return res.status(500).json({
+      message: `❌ Error fetching status: ${err.message}`,
+      students: [],
+      rawText: null,
+    });
+  }
+});
+
+
+app.get("/api/student-visual", async (req, res) => {
+  try {
+    const webhook =
+      process.env.N8N_STUDENT_VISUAL_URL ||
+      "https://myaidesigntools.app.n8n.cloud/webhook/MODULE_2_VISUAL";
+
+    console.log("🎒 Fetching student visual data...", webhook);
+
+    const response = await fetch(webhook);
+    if (!response.ok) throw new Error(`N8N responded with ${response.status}`);
+
+    const raw = await response.json();
+
+    let data = raw;
+    if (raw?.output && typeof raw.output === "string") data = JSON.parse(raw.output);
+    if (Array.isArray(data) && data[0]?.students) data = data[0];
+
+    const students = Array.isArray(data?.students) ? data.students : [];
+
+    const normalized = students.map((s) => ({
+      ...s,
+      avgAppetite: Number(s.avgAppetite) || 0,
+      avgSleep: Number(s.avgSleep) || 0,
+      avgBehaviour: Number(s.avgBehaviour) || 0,
+      avgMood: Number(s.avgMood) || 0,
+      riskLevel: s.riskLevel || s.risk_level || "Low",
+    }));
+
+    return res.json({ students: normalized });
+  } catch (err) {
+    console.error("❌ Student visual error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 
     const parseFromTextOrJson = (raw) => {
       // If n8n already returns { students: [...] } — use it directly
