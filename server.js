@@ -194,41 +194,37 @@ const parseSection = (block, label) => {
 
 let students = studentBlocks
   .map((block, idx) => {
-    const head = parseHeader(block);
-    if (!head) return null; // ✅ IMPORTANT: don't create fake students
+    const b = String(block || "").trim();   // ✅ define b here FIRST
+    if (!b) return null;
 
-    const reasonsRaw =
-      parseSection(block, "Reasons?") ||
-      parseSection(block, "Challenges?") ||
-      parseSection(block, "Concerns?");
+    // ----- header parsing -----
+    const head = b.match(/(?:\d+\.\s*)?(.+?)\s*-\s*(HIGH|MEDIUM|LOW)\s*RISK/i);
+    const name = (head?.[1] || `Student ${idx + 1}`).trim();
+    const risk_level = normalizeRisk(head?.[2] || "UNKNOWN");
 
-    const recRaw =
-      parseSection(block, "Recommendations?") ||
-      parseSection(block, "Guidance") ||
-      parseSection(block, "Next Steps?");
+    // ----- reasons & recs -----
+    const reasonsMatch = b.match(
+      /(Reasons?|Concerns?|Challenges?)\s*[:\-]\s*([\s\S]*?)(?=\n\s*(Recommendations?|Guidance|Next Steps?|Notes?|$))/i
+    );
+    const recMatch = b.match(
+      /(Recommendations?|Guidance|Next Steps?)\s*[:\-]\s*([\s\S]*?)(?=\n\s*(Notes?|General Notes|$))/i
+    );
+
+    const reasonsRaw = reasonsMatch?.[2] || "";
+    const recRaw = recMatch?.[2] || "";
 
     const reasons = splitBullets(reasonsRaw);
     const recommendations = splitBullets(recRaw);
 
     const risk_score =
-      head.risk_level === "HIGH"
-        ? 80
-        : head.risk_level === "MEDIUM"
-        ? 55
-        : head.risk_level === "LOW"
-        ? 25
-        : 0;
+      risk_level === "HIGH" ? 80 :
+      risk_level === "MEDIUM" ? 55 :
+      risk_level === "LOW" ? 25 : 0;
 
-    return {
-      id: String(idx),
-      name: head.name,
-      risk_level: head.risk_level,
-      risk_score,
-      reasons,
-      recommendations,
-    };
+    return { id: String(idx), name, risk_level, risk_score, reasons, recommendations };
   })
   .filter(Boolean);
+
 
 // ✅ If nothing parsed, return raw text so you can SEE what webhook sent
 if (!students.length) {
