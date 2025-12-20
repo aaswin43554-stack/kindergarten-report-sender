@@ -9,7 +9,6 @@ import cors from "cors";
 import bodyParser from "body-parser";
 import path from "path";
 import { fileURLToPath } from "url";
-import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
 
@@ -29,52 +28,59 @@ const client = twilio(
 // GOOGLE SHEETS CONFIGURATION
 // =======================================================
 const auth = new google.auth.GoogleAuth({
-  keyFile: "credentials.json", // service account key file
+  keyFile: "credentials.json",
   scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
 });
 
 const sheets = google.sheets({ version: "v4", auth });
 
 // =======================================================
-// SUPABASE CONFIGURATION
-// =======================================================
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-// =======================================================
-// ROUTE: GET STUDENT REPORT STATUS (FROM SUPABASE)
+// STUDENT STATUS (N8N)
 // =======================================================
 app.get("/student-status", async (req, res) => {
   try {
-    // Fetch the first row from 'Student data storing final' table
-    const { data, error } = await supabase
-      .from("Student data storing final")
-      .select("*")
-      .limit(1)
-      .single();
+    const webhook = process.env.N8N_STUDENT_STATUS_URL || process.env.N8N_WEBHOOK_URL;
 
-    if (error) throw error;
-
-    if (!data) {
-      return res.json({ message: "⚠️ No data found in Supabase." });
+    if (!webhook) {
+      return res.json({
+        message: "⚠️ System info: N8N_STUDENT_STATUS_URL is missing in .env",
+      });
     }
 
-    // Choose a useful field or fallback to the whole row
-    const statusMessage =
-      data.message || data.status || data.report || JSON.stringify(data);
+    console.log("📊 Fetching student status text from N8N...", webhook);
+    const response = await fetch(webhook);
 
-    res.json({ message: statusMessage });
-  } catch (error) {
-    console.error("Supabase Error:", error);
-    res
-      .status(500)
-      .json({ message: `❌ Error fetching status: ${error.message}` });
+    if (!response.ok) {
+      throw new Error(`N8N responded with ${response.status}`);
+    }
+
+    // Attempt to parse JSON
+    // If n8n returns a string immediately (which can happen), handle that.
+    const text = await response.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      // It's simple text
+      return res.json({ message: text });
+    }
+
+    // If it's JSON, look for common fields
+    const message =
+      data.message ||
+      data.output ||
+      data.result ||
+      (typeof data === "string" ? data : JSON.stringify(data));
+
+    return res.json({ message });
+  } catch (err) {
+    console.error("❌ Student status error:", err);
+    return res.json({ message: `❌ Error fetching status: ${err.message}` });
   }
 });
 
 // =======================================================
-// ROUTE: SEND DAILY REPORTS
+// SEND DAILY REPORTS
 // =======================================================
 app.get("/send", async (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
@@ -88,20 +94,21 @@ app.get("/send", async (req, res) => {
 
     const sheetId = process.env.SHEET_ID;
     const range = "Daily Report!A2:H";
+
     const result = await sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
       range,
     });
 
-    const rows = result.data.values;
+    const rows = result.data.values || [];
 
-    if (!rows || rows.length === 0) {
+    if (rows.length === 0) {
       sendLog("⚠️ No data found in Google Sheet.");
       sendLog("[DONE]");
       return res.end();
     }
 
-    sendLog(`✅ Found ${rows.length} rows. Preparing to send messages...`);
+    sendLog(`✅ Found ${rows.length} rows. Preparing messages...`);
 
     for (const row of rows) {
       const [
@@ -112,60 +119,45 @@ app.get("/send", async (req, res) => {
         mood,
         note,
         phone,
-        messageFromSheet,
+        customMessage,
       ] = row;
 
       if (!phone) {
-        sendLog(
-          `⚠️ Skipping ${studentName || "Unnamed"} (missing phone number)`
-        );
+        sendLog(`⚠️ Missing phone number for ${studentName || "Unknown"}`);
         continue;
       }
 
-      const messageBody =
-        messageFromSheet ||
-        `
-🌞 Good evening, dear parent!  
+      const message =
+        customMessage ||
+        `🌞 Good evening!\n\n👧 Student: ${studentName}\n🍽 Appetite: ${appetite}\n💤 Sleeping: ${sleeping}\n😊 Behaviour: ${behaviour}\n🎭 Mood: ${mood}\n📝 Note: ${note}\n\nYour child had a wonderful day at school! 💖`;
 
-Here’s today’s daily report for your little one 🧸💕
-
-👧 Student: ${studentName || "Unknown"}
-🍽 Appetite: ${appetite || "N/A"}
-💤 Sleeping: ${sleeping || "N/A"}
-😊 Behaviour: ${behaviour || "N/A"}
-🎭 Mood: ${mood || "N/A"}
-📝 Note: ${note || "No note provided."}
-
-Your child had a wonderful day at school today! 💖  
-- The Kindergarten Team 🏫✨
-        `;
-
-      sendLog(`➡️ Sending message to ${phone} (${studentName || "Unknown"})...`);
+      sendLog(`➡️ Sending message to ${phone}...`);
 
       try {
         await client.messages.create({
           from: process.env.TWILIO_WHATSAPP_FROM,
           to: `whatsapp:${phone}`,
-          body: messageBody,
+          body: message,
         });
-        sendLog(`✅ Message sent successfully to ${phone}`);
+
+        sendLog(`✅ Successfully sent to ${phone}`);
       } catch (err) {
-        sendLog(`❌ Failed to send to ${phone}: ${err.message}`);
+        sendLog(`❌ Error sending to ${phone}: ${err.message}`);
       }
     }
 
-    sendLog("🎉 All daily reports sent successfully!");
+    sendLog("🎉 All daily reports sent!");
     sendLog("[DONE]");
     res.end();
-  } catch (error) {
-    sendLog(`❌ Error in /send: ${error.message}`);
+  } catch (err) {
+    sendLog(`❌ Error: ${err.message}`);
     sendLog("[DONE]");
     res.end();
   }
 });
 
 // =======================================================
-// ROUTE: SEND WEEKLY MENU (ONE MESSAGE TO ALL PARENTS)
+// SEND WEEKLY MENU
 // =======================================================
 app.get("/send-menu", async (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
@@ -175,114 +167,136 @@ app.get("/send-menu", async (req, res) => {
   const sendLog = (msg) => res.write(`data: ${msg}\n\n`);
 
   try {
-    sendLog("🍱 Fetching weekly food menu from Google Sheet...");
+    sendLog("🍱 Fetching weekly menu...");
 
     const sheetId = process.env.SHEET_ID;
     const range = "WeeklyMenu!A2:C";
+
     const result = await sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
       range,
     });
 
-    const rows = result.data.values;
+    const rows = result.data.values || [];
 
-    if (!rows || rows.length === 0) {
-      sendLog("⚠️ No data found in WeeklyMenu sheet.");
+    if (rows.length === 0) {
+      sendLog("⚠️ No menu data found.");
       sendLog("[DONE]");
       return res.end();
     }
 
-    // Prepare the table of day + food
-    let menuTable = "*🍽 Weekly Food Menu 🍽*\n\n";
-    menuTable += "📅 *Day* — *Menu*\n";
-    menuTable += "──────────────────────\n";
-    for (const row of rows) {
-      const [day, food] = row;
-      menuTable += `• ${day || "N/A"} — ${food || "N/A"}\n`;
-    }
-    menuTable += "\nHave a delicious week ahead! 😋\n- Kindergarten Team 🏫✨";
+    let menu = "*🍽 Weekly Menu 🍽*\n\n📅 *Day — Menu*\n";
 
-    // Collect unique phone numbers from column C
-    const phones = [...new Set(rows.map((r) => r[2]).filter(Boolean))];
+    rows.forEach(([day, food]) => {
+      menu += `• ${day}: ${food}\n`;
+    });
 
-    sendLog(
-      `✅ Found ${rows.length} menu rows and ${phones.length} unique phone numbers.`
-    );
+    const numbers = [...new Set(rows.map((r) => r[2]).filter(Boolean))];
 
-    for (const phone of phones) {
-      sendLog(`➡️ Sending weekly menu to ${phone}...`);
+    for (const phone of numbers) {
+      sendLog(`➡️ Sending menu to ${phone}...`);
       try {
         await client.messages.create({
           from: process.env.TWILIO_WHATSAPP_FROM,
           to: `whatsapp:${phone}`,
-          body: menuTable,
+          body: menu,
         });
-        sendLog(`✅ Menu message sent successfully to ${phone}`);
+        sendLog(`✅ Sent to ${phone}`);
       } catch (err) {
-        sendLog(`❌ Failed to send to ${phone}: ${err.message}`);
+        sendLog(`❌ Failed: ${err.message}`);
       }
     }
 
-    sendLog("🎉 Weekly menu message sent to all parents successfully!");
+    sendLog("🎉 Weekly menu sent to all parents!");
     sendLog("[DONE]");
     res.end();
-  } catch (error) {
-    sendLog(`❌ Error in /send-menu: ${error.message}`);
+  } catch (err) {
+    sendLog(`❌ Error: ${err.message}`);
     sendLog("[DONE]");
     res.end();
   }
 });
 
 // =======================================================
-// AI TEACHER ANALYSIS TEXT REPORT (n8n webhook)
+// AI TEACHER TEXT REPORT (n8n)
 // =======================================================
 app.post("/api/teacher-analysis-report", async (req, res) => {
   try {
-    const webhook = process.env.N8N_TEACHER_REPORT_WEBHOOK_URL;
-    if (!webhook) {
-      return res
-        .status(500)
-        .json({ error: "N8N_TEACHER_REPORT_WEBHOOK_URL is not set" });
-    }
+    const url = process.env.N8N_TEACHER_REPORT_WEBHOOK_URL;
 
-    const response = await fetch(webhook, {
+    const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(req.body),
     });
 
     const json = await response.json();
-    return res.json(json);
+    res.json(json);
   } catch (err) {
-    console.error("Teacher report error:", err);
-    return res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
 // =======================================================
-// TEACHER VISUAL CHART DATA (n8n webhook)
+// TEACHER VISUAL (n8n)
 // =======================================================
 app.get("/api/teacher-visual", async (req, res) => {
   try {
-    const webhook = process.env.N8N_TEACHER_VISUAL_URL;
-    if (!webhook) {
-      return res
-        .status(500)
-        .json({ error: "N8N_TEACHER_VISUAL_URL is not set" });
-    }
-
-    const response = await fetch(webhook);
+    const url = process.env.N8N_TEACHER_VISUAL_URL;
+    const response = await fetch(url);
     const json = await response.json();
-
     return res.json(json);
   } catch (err) {
-    console.error("Teacher visual error:", err);
     return res.status(500).json({ error: err.message });
   }
 });
 
 // =======================================================
-// SERVE FRONTEND BUILD
+// STUDENT VISUAL ANALYTICS (n8n)
+// =======================================================
+app.get("/api/student-visual", async (req, res) => {
+  try {
+    const webhook = process.env.N8N_STUDENT_VISUAL_URL;
+
+    console.log("🎒 Fetching student visual data...");
+
+    const response = await fetch(webhook);
+    const raw = await response.json();
+
+    console.log("🔹 Raw N8N response:", raw);
+
+    let data = raw;
+
+    // n8n sometimes returns JSON as string
+    if (raw.output && typeof raw.output === "string") {
+      data = JSON.parse(raw.output);
+    }
+
+    // validate students array
+    if (!Array.isArray(data.students) || data.students.length === 0) {
+      console.warn("⚠️ No student visual data found");
+      return res.json({ students: [] });
+    }
+
+    // force numeric values (VERY IMPORTANT)
+    const students = data.students.map((s) => ({
+      ...s,
+      avgAppetite: Number(s.avgAppetite) || 0,
+      avgSleep: Number(s.avgSleep) || 0,
+      avgBehaviour: Number(s.avgBehaviour) || 0,
+      avgMood: Number(s.avgMood) || 0,
+    }));
+
+    return res.json({ students });
+
+  } catch (err) {
+    console.error("❌ Student visual error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// =======================================================
+// STATIC FRONTEND (EXPRESS v5 FIX)
 // =======================================================
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -290,7 +304,8 @@ const __dirname = path.dirname(__filename);
 const distPath = path.join(__dirname, "client", "dist");
 app.use(express.static(distPath));
 
-app.get("/", (req, res) => {
+// must be app.use(), not app.get()
+app.use((req, res) => {
   res.sendFile(path.join(distPath, "index.html"));
 });
 
@@ -298,8 +313,6 @@ app.get("/", (req, res) => {
 // START SERVER
 // =======================================================
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log("✨ /api/teacher-visual ready");
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
 });

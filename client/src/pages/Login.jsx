@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-const Login = () => {
+const Login = ({ onLogin }) => {
   // local state for input fields and error msg
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -13,8 +13,8 @@ const Login = () => {
   const handleLogin = () => {
     // simple static login (you can change later)
     if (username === "teacher" && password === "1234") {
-      // store login info
-      localStorage.setItem("loggedIn", "true");
+      // call parent login handler
+      if (onLogin) onLogin();
 
       // redirect to dashboard
       navigate("/dashboard");
