@@ -509,24 +509,42 @@ const Dashboard = ({ onLogout }) => {
   // TEACHER VISUAL DATA
   // ---------------------------------------------------------------------------
   const fetchVisualData = async () => {
-    try {
-      const response = await fetch("/api/teacher-visual");
-      const json = await response.json();
+  appendLog("📊 Loading teacher visual analytics...", "info");
 
-      // server returns { teachers: [...] }
-      const teachers = Array.isArray(json?.teachers) ? json.teachers : Array.isArray(json) ? json : null;
+  try {
+    const res = await fetch("/api/teacher-visual");
+    const json = await res.json();
 
-      if (!teachers || teachers.length === 0) {
-        appendLog("❌ Visual data missing or wrong format.", "error");
-        return;
-      }
+    let teachers = [];
 
-      setVisualData(teachers);
-      appendLog(`✅ Visual data loaded for ${teachers.length} teachers.`, "success");
-    } catch {
-      appendLog("❌ Error loading teacher visuals.", "error");
+    // ✅ preferred format from backend: { teachers: [...] }
+    if (Array.isArray(json?.teachers)) {
+      teachers = json.teachers;
     }
-  };
+    // fallback if backend returns array wrapper
+    else if (Array.isArray(json)) {
+      // if it’s like [{ teachers:[...] }, { teachers:[...] }]
+      json.forEach((item) => {
+        if (Array.isArray(item?.teachers)) teachers.push(...item.teachers);
+      });
+
+      // or array of teacher objects directly
+      if (teachers.length === 0 && json.length && json[0]?.name) {
+        teachers = json;
+      }
+    }
+
+    if (!teachers.length) {
+      appendLog("❌ Teacher visual data missing / wrong format.", "error");
+      return;
+    }
+
+    appendLog(`✅ Teacher visuals loaded for ${teachers.length} teachers.`, "success");
+    setVisualData(teachers); // ✅ will now have all 10
+  } catch (err) {
+    appendLog(`❌ Error loading teacher visuals: ${err.message}`, "error");
+  }
+};
 
   // ---------------------------------------------------------------------------
   // AI TEACHER REPORT (n8n)

@@ -131,19 +131,24 @@ app.get("/student-status", async (req, res) => {
         raw?.result ||
         raw?.data ||
         JSON.stringify(raw);
+       const text = String(analysisText || "")
+  .replace(/\r\n/g, "\n")
+  .replace(/[ \t]+/g, " ")
+  .trim();
 
-      const text = String(analysisText || "").replace(/\s+/g, " ").trim();
 
       // Split into numbered student blocks: "1. Name - HIGH RISK ..."
       const blocks = text.split(/\s(?=\d+\.\s)/g).filter(Boolean);
       const studentBlocks = blocks.length ? blocks : [text];
 
       const splitBullets = (s) =>
-        String(s)
-          .split(/(?:\.\s+|;\s+|,\s+|-\s+)/)
-          .map((x) => x.trim())
-          .filter((x) => x && x.length > 2)
-          .slice(0, 10);
+  String(s || "")
+    .replace(/\s+/g, " ")
+    .split(/(?:\s*[•\-]\s+|\s*\d+\.\s+|\s*\d+\)\s+|;\s+|\.\s+(?=[A-Z])|,\s+)/)
+    .map((x) => x.trim())
+    .filter((x) => x && x.length > 2)
+    .slice(0, 8);
+
 
       const students = studentBlocks
         .map((b, idx) => {
@@ -159,11 +164,12 @@ app.get("/student-status", async (req, res) => {
 
           // Extract sections (best-effort)
           const reasonsMatch = block.match(
-            /Reasons\s*-\s*(.*?)(?=\s(?:Observations|Recommendations|General Notes|$))/i
-          );
-          const recMatch = block.match(
-            /Recommendations?\s*:\s*(.*?)(?=\s(?:General Notes|$))/i
-          );
+  /Reasons?\s*[:\-]\s*(.*?)(?=\s(?:Observations?|Recommendations?|Guidance|Challenges|General\s*Notes?|Notes?|$))/i
+);
+
+const recMatch = block.match(
+  /Recommendations?\s*[:\-]\s*(.*?)(?=\s(?:Observations?|Guidance|Challenges|General\s*Notes?|Notes?|$))/i
+);
 
           const reasonsRaw = reasonsMatch?.[1] || "";
           const recRaw = recMatch?.[1] || "";
