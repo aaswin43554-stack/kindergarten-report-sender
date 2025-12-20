@@ -46,7 +46,7 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
 // - 1) Try Supabase (if configured)
 // - 2) Fallback to n8n webhook
 // - Always returns: { message, students, charts, summary }
-// =======================================================
+
 // =======================================================
 // ROUTE: STUDENT STATUS (TEXT ONLY -> ordered message)
 // =======================================================
@@ -63,7 +63,6 @@ app.get("/student-status", async (req, res) => {
 
     const rawText = await response.text();
 
-    // Try JSON first, else plain text
     let raw;
     try {
       raw = JSON.parse(rawText);
@@ -71,7 +70,6 @@ app.get("/student-status", async (req, res) => {
       raw = rawText;
     }
 
-    // Extract message text from common fields
     const analysisText =
       (typeof raw === "string" && raw) ||
       raw?.message ||
@@ -80,7 +78,6 @@ app.get("/student-status", async (req, res) => {
       raw?.data ||
       JSON.stringify(raw);
 
-    // Keep newlines (important)
     const text = String(analysisText || "").replace(/\r\n/g, "\n").trim();
 
     const normalizeRisk = (s) => {
@@ -94,7 +91,6 @@ app.get("/student-status", async (req, res) => {
 
     const riskOrder = { HIGH: 0, MEDIUM: 1, LOW: 2, UNKNOWN: 9 };
 
-    // split by "1. " style blocks (works even if it’s one paragraph)
     const blocks = text.split(/(?=\d+\.\s)/g).filter(Boolean);
     const studentBlocks = blocks.length ? blocks : [text];
 
@@ -131,7 +127,6 @@ app.get("/student-status", async (req, res) => {
       return { id: String(idx), name, risk_level, risk_score, reasons, recommendations };
     });
 
-    // don’t filter too aggressively
     students = students.filter((s) => s.name && s.name.length > 1);
 
     students.sort((a, b) => {
@@ -151,11 +146,12 @@ app.get("/student-status", async (req, res) => {
       }),
     ].join("\n");
 
+    // ✅ IMPORTANT: no illegal return outside — this is inside route
     return res.json({
       summary: "Student risk assessment generated.",
       message,
       students,
-      rawText, // helpful for debugging
+      rawText,
     });
   } catch (err) {
     console.error("❌ Student status error:", err);
@@ -164,6 +160,72 @@ app.get("/student-status", async (req, res) => {
       students: [],
       rawText: null,
     });
+  }
+});
+
+
+// =======================================================
+// STUDENT VISUAL ANALYTICS (VISUAL webhook ONLY)
+// =======================================================
+app.get("/api/student-visual", async (req, res) => {
+  try {
+    const webhook =
+      process.env.N8N_STUDENT_VISUAL_URL ||
+      "https://myaidesigntools.app.n8n.cloud/webhook/MODULE_2_VISUAL";
+
+    console.log("🎒 Fetching student visual data...", webhook);
+
+    const response = await fetch(webhook);
+    if (!response.ok) throw new Error(`N8N responded with ${response.status}`);
+
+    const text = await response.text();
+
+    let raw;
+    try {
+      raw = JSON.parse(text);
+    } catch (e) {
+      throw new Error("Student visual webhook returned non-JSON text");
+    }
+
+    // ✅ Normalize possible shapes from n8n
+    // Possible outputs:
+    // 1) { students:[...] }
+    // 2) [{ students:[...] }]
+    // 3) { output:"{students:[...]}" }
+    // 4) [{ output:"{students:[...]}" }]
+    let data = raw;
+
+    if (Array.isArray(data) && data.length === 1) data = data[0];
+
+    if (data?.output && typeof data.output === "string") {
+      try {
+        data = JSON.parse(data.output);
+      } catch {
+        // keep as-is
+      }
+    }
+
+    if (Array.isArray(data) && data[0]?.students) data = data[0];
+
+    const students = Array.isArray(data?.students) ? data.students : [];
+
+    // ✅ Ensure numeric values for charts
+    const normalized = students.map((s) => ({
+      ...s,
+      name: s.name || s.studentName || "Unknown",
+      avgAppetite: Number(s.avgAppetite) || 0,
+      avgSleep: Number(s.avgSleep) || 0,
+      avgBehaviour: Number(s.avgBehaviour) || 0,
+      avgMood: Number(s.avgMood) || 0,
+      riskLevel: s.riskLevel || s.risk_level || "Low",
+    }));
+
+    console.log("✅ Student visuals count:", normalized.length);
+
+    return res.json({ students: normalized });
+  } catch (err) {
+    console.error("❌ Student visual error:", err.message);
+    return res.status(500).json({ error: err.message, students: [] });
   }
 });
 
