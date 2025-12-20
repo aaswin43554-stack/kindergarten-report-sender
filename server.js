@@ -34,7 +34,7 @@ const auth = new google.auth.GoogleAuth({
 const sheets = google.sheets({ version: "v4", auth });
 
 // =======================================================
-<<<<<<< HEAD
+
 // =======================================================
 // ROUTE: STUDENT STATUS (Structured + Ordered + Chart-ready)
 // =======================================================
@@ -61,7 +61,7 @@ app.get("/student-status", async (req, res) => {
       raw = rawText;
     }
 
-    // Normalize to a string "analysisText" we can parse if needed
+    // Convert anything into a single text blob we can parse if needed
     const analysisText =
       (typeof raw === "string" && raw) ||
       raw?.message ||
@@ -84,8 +84,12 @@ app.get("/student-status", async (req, res) => {
 
     const riskOrder = { HIGH: 0, MEDIUM: 1, LOW: 2, UNKNOWN: 9 };
 
-    // If n8n ALREADY returns structured JSON like { students:[...] }, use it
+    // -----------------------------
+    // Build students[]
+    // -----------------------------
     let students = [];
+
+    // If n8n already returns { students: [...] } — use it directly
     if (raw?.students && Array.isArray(raw.students)) {
       students = raw.students.map((s, idx) => ({
         id: s.id || String(idx),
@@ -97,17 +101,11 @@ app.get("/student-status", async (req, res) => {
         recommendations: Array.isArray(s.recommendations) ? s.recommendations : [],
       }));
     } else {
-      // -----------------------------
-      // Parse from bulk text (your current problem)
-      // Example pattern from your screenshot:
-      // "Risk Assessment Summary: 1. Kamesh S - HIGH RISK Reasons - ... 2. Tarun Kumar R - MEDIUM RISK ..."
-      // -----------------------------
+      // Otherwise parse from bulk text
       const text = String(analysisText || "").replace(/\s+/g, " ").trim();
 
       // Split into numbered student blocks: "1. Name - HIGH RISK ..."
       const blocks = text.split(/\s(?=\d+\.\s)/g).filter(Boolean);
-
-      // If no numbered blocks found, fallback to whole as one block
       const studentBlocks = blocks.length ? blocks : [text];
 
       students = studentBlocks
@@ -115,15 +113,20 @@ app.get("/student-status", async (req, res) => {
           const block = b.trim();
 
           // Extract "Name - RISK"
-          // matches: "1. Kamesh S - HIGH RISK" or "Kamesh S - HIGH RISK"
-          const m = block.match(/(?:\d+\.\s*)?([A-Za-z][A-Za-z\s.]*?)\s*-\s*(HIGH|MEDIUM|LOW)\s*RISK/i);
+          const m = block.match(
+            /(?:\d+\.\s*)?([A-Za-z][A-Za-z\s.]*?)\s*-\s*(HIGH|MEDIUM|LOW)\s*RISK/i
+          );
+
           const name = m?.[1]?.trim() || `Student ${idx + 1}`;
           const risk_level = normalizeRisk(m?.[2] || "UNKNOWN");
 
           // Extract sections (best-effort)
-          // Reasons: ... (until next keyword)
-          const reasonsMatch = block.match(/Reasons\s*-\s*(.*?)(?=\s(?:Quiet Behavior|Observations|Recommendations|General Notes|$))/i);
-          const recMatch = block.match(/Recommendations?\s*:\s*(.*?)(?=\s(?:General Notes|$))/i);
+          const reasonsMatch = block.match(
+            /Reasons\s*-\s*(.*?)(?=\s(?:Observations|Recommendations|General Notes|$))/i
+          );
+          const recMatch = block.match(
+            /Recommendations?\s*:\s*(.*?)(?=\s(?:General Notes|$))/i
+          );
 
           const reasonsRaw = reasonsMatch?.[1] || "";
           const recRaw = recMatch?.[1] || "";
@@ -133,9 +136,9 @@ app.get("/student-status", async (req, res) => {
               .split(/(?:\.\s+|;\s+|,\s+|-\s+)/)
               .map((x) => x.trim())
               .filter((x) => x && x.length > 2)
-              .slice(0, 8);
+              .slice(0, 10);
 
-          // crude risk_score (optional): you can improve later
+          // simple default score if no numeric score is present
           const risk_score =
             risk_level === "HIGH" ? 80 :
             risk_level === "MEDIUM" ? 55 :
@@ -151,11 +154,17 @@ app.get("/student-status", async (req, res) => {
             recommendations: splitBullets(recRaw),
           };
         })
-        // remove junk blocks that don't look like students
-        .filter((s) => s.name && !s.name.toLowerCase().includes("risk assessment summary"));
+        .filter(
+          (s) =>
+            s.name &&
+            !s.name.toLowerCase().includes("risk assessment summary") &&
+            s.risk_level !== "UNKNOWN"
+        );
     }
 
-    // Order: HIGH -> MEDIUM -> LOW, then score desc
+    // -----------------------------
+    // Sort ordered: HIGH -> MEDIUM -> LOW, then by score desc
+    // -----------------------------
     students.sort((a, b) => {
       const ao = riskOrder[a.risk_level] ?? 9;
       const bo = riskOrder[b.risk_level] ?? 9;
@@ -163,7 +172,9 @@ app.get("/student-status", async (req, res) => {
       return (b.risk_score ?? 0) - (a.risk_score ?? 0);
     });
 
+    // -----------------------------
     // Charts for visuals
+    // -----------------------------
     const riskCounts = { HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0 };
     const riskScores = students.map((s) => ({
       name: s.name,
@@ -175,35 +186,43 @@ app.get("/student-status", async (req, res) => {
       riskCounts[s.risk_level] = (riskCounts[s.risk_level] || 0) + 1;
     }
 
-    // Nice ordered message for your logs box
+    // -----------------------------
+    // Ordered message for Logs
+    // -----------------------------
     const message = [
       "📌 Student Risk Report (Ordered)",
       "",
       ...students.map((s, i) => {
-        const reasons = s.reasons?.length ? `Reasons: ${s.reasons.join(", ")}` : "Reasons: N/A";
-        const recs = s.recommendations?.length ? `Recommendations: ${s.recommendations.join(", ")}` : "Recommendations: N/A";
+        const reasons = s.reasons?.length
+          ? `Reasons: ${s.reasons.join(", ")}`
+          : "Reasons: N/A";
+        const recs = s.recommendations?.length
+          ? `Recommendations: ${s.recommendations.join(", ")}`
+          : "Recommendations: N/A";
         return `${i + 1}. ${s.name} — ${s.risk_level} (Score: ${s.risk_score})\n   ${reasons}\n   ${recs}`;
       }),
     ].join("\n");
 
     return res.json({
       summary: "Student risk assessment generated.",
-      message,               // clean formatted text (for Logs)
-      students,              // structured ordered list (for UI)
-      charts: { riskCounts, riskScores }, // chart-ready data (for visuals)
-      raw: null,             // keep null; set to rawText if you want debugging
+      message, // for Logs UI
+      students, // for ordered UI cards
+      charts: { riskCounts, riskScores }, // for visuals
     });
   } catch (err) {
     console.error("❌ Student status error:", err);
     return res.status(500).json({
       message: `❌ Error fetching status: ${err.message}`,
       students: [],
-      charts: { riskCounts: { HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0 }, riskScores: [] },
+      charts: {
+        riskCounts: { HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0 },
+        riskScores: [],
+      },
     });
   }
 });
 
-=======
+
 // SUPABASE CONFIGURATION (optional, only if envs exist)
 // =======================================================
 let supabase = null;
