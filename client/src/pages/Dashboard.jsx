@@ -55,11 +55,21 @@ const InlineStyles = () => (
         transform: translateY(-2px);
       }
 
+<<<<<<< HEAD
       .tab-btn.active {
         background: #3b82f6;
         color: white;
         box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
       }
+=======
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 25px;
+    flex-wrap: wrap;
+  }
+>>>>>>> 90c4f33d55caf13cfdac6bcfdd68e69aacb99eda
 
       /* Tab Panel */
       .tab-panel {
@@ -156,6 +166,7 @@ const InlineStyles = () => (
         font-size: 0.9rem;
       }
 
+<<<<<<< HEAD
       .log-item {
         padding: 0.5rem;
         border-bottom: 1px solid rgba(255,255,255,0.05);
@@ -167,12 +178,124 @@ const InlineStyles = () => (
       .log-item.info { color: #94a3b8; }
     `}
   </style>
+=======
+  .log-item {
+    padding: 4px 0;
+    font-size: 0.95rem;
+  }
+
+  .log-item.green { color: #16a34a; }
+  .log-item.yellow { color: #d97706; }
+  .log-item.red { color: #dc2626; }
+
+  /* ------------------------------------------------------------------ */
+  /* TEACHER PERFORMANCE AI REPORT STYLES                               */
+  /* ------------------------------------------------------------------ */
+  .teacher-report-box {
+    background: white;
+    border: 1px solid #e5e7eb;
+    padding: 22px;
+    margin-top: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+    text-align: left;
+    max-height: 70vh;
+    overflow-y: auto;
+    line-height: 1.55;
+  }
+
+  .teacher-name {
+    font-size: 1.3rem;
+    margin-top: 16px;
+    color: #111;
+    display: block;
+  }
+
+  .teacher-verdict {
+    font-size: 1.05rem;
+    color: #444;
+    margin-bottom: 4px;
+    display: block;
+  }
+
+  .bullet {
+    margin-left: 22px;
+    display: block;
+  }
+
+  .section-heading {
+    margin-top: 10px;
+    font-weight: 700;
+  }
+  `}</style>
+>>>>>>> 90c4f33d55caf13cfdac6bcfdd68e69aacb99eda
 );
 
 // -----------------------------------------------------------------------------
 // MAIN COMPONENT - COMPLETE VERSION
 // -----------------------------------------------------------------------------
+<<<<<<< HEAD
 const Dashboard = ({ onLogout }) => {
+=======
+const renderMarkdownAsHtml = (markdownText) => {
+  if (!markdownText) return "";
+
+  let text = markdownText.replace(/\r\n/g, "\n").trim();
+
+  const PARA_TOKEN = "__PARA_BREAK__";
+  text = text.replace(/\n{2,}/g, PARA_TOKEN);
+  text = text.replace(/\n/g, " ");
+  text = text.replace(new RegExp(PARA_TOKEN, "g"), "\n\n");
+
+  const paragraphs = text
+    .split(/\n\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  let html = "";
+
+  for (let p of paragraphs) {
+    p = p.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+
+    if (/^Teacher:\s*/i.test(p)) {
+      const name = p.replace(/^Teacher:\s*/i, "").trim();
+      html += `<div class="teacher-name">👩‍🏫 <strong>${name}</strong></div>`;
+      continue;
+    }
+
+    if (/^Verdict:\s*/i.test(p)) {
+      const v = p.replace(/^Verdict:\s*/i, "").trim();
+      html += `<div class="teacher-verdict"><strong>Verdict: ${v}</strong></div>`;
+      continue;
+    }
+
+    const headingMatch = p.match(
+      /^(On Teacher Performance:|Strengths:|Weaknesses:|Guidance:|Challenges:|Final Verdict:|Final Suggested Role:|Final Suggestion:)(.*)$/i
+    );
+    if (headingMatch) {
+      const label = headingMatch[1];
+      const rest = headingMatch[2].trim();
+      html += `<div class="section-heading"><strong>${label}</strong>${rest ? " " + rest : ""}</div>`;
+      continue;
+    }
+
+    if (/^- /.test(p)) {
+      const item = p.replace(/^- /, "").trim();
+      html += `<div class="bullet">• ${item}</div>`;
+      continue;
+    }
+
+    html += `<div>${p}</div>`;
+  }
+
+  return html;
+};
+
+// -----------------------------------------------------------------------------
+// MAIN COMPONENT
+// -----------------------------------------------------------------------------
+const Dashboard = () => {
+>>>>>>> 90c4f33d55caf13cfdac6bcfdd68e69aacb99eda
   const navigate = useNavigate();
 
   // -------------------- STATES --------------------
@@ -190,6 +313,7 @@ const Dashboard = ({ onLogout }) => {
   const barChartRef = useRef(null);
   const lineChartRef = useRef(null);
 
+<<<<<<< HEAD
   const studentRadarRef = useRef(null);
   const studentRiskRef = useRef(null);
 
@@ -210,6 +334,14 @@ const Dashboard = ({ onLogout }) => {
       }
     ]);
   };
+=======
+  const radarInstanceRef = useRef(null);
+  const barInstanceRef = useRef(null);
+  const lineInstanceRef = useRef(null);
+
+  const appendLog = (msg) =>
+    setLogs((prev) => [...prev, typeof msg === "string" ? msg : JSON.stringify(msg)]);
+>>>>>>> 90c4f33d55caf13cfdac6bcfdd68e69aacb99eda
 
   const clearLogs = () => setLogs([]);
 
@@ -368,11 +500,42 @@ const Dashboard = ({ onLogout }) => {
       const response = await fetch("/api/teacher-visual");
       let raw = await response.json();
 
+<<<<<<< HEAD
       let teachers = raw?.[0]?.teachers || raw.teachers || raw.data;
       if (!teachers) return appendLog("❌ Visual data missing.", "error");
 
       setVisualData(teachers);
       appendLog("✅ Teacher visual loaded.", "success");
+=======
+      let raw;
+      try {
+        raw = JSON.parse(rawText);
+      } catch {
+        appendLog("❌ Could not parse AI visual data JSON.");
+        return;
+      }
+
+      let teachers = null;
+
+      if (Array.isArray(raw?.teachers)) {
+        teachers = raw.teachers;
+      } else if (Array.isArray(raw)) {
+        const collected = raw.flatMap((item) =>
+          Array.isArray(item?.teachers) ? item.teachers : []
+        );
+        teachers = collected.length ? collected : raw;
+      } else if (Array.isArray(raw?.data)) {
+        teachers = raw.data;
+      }
+
+      if (!teachers || teachers.length === 0) {
+        appendLog("❌ Visual data missing or in wrong format.");
+        return;
+      }
+
+      setVisualData(teachers);
+      appendLog(`✅ Visual data loaded for ${teachers.length} teachers.`);
+>>>>>>> 90c4f33d55caf13cfdac6bcfdd68e69aacb99eda
     } catch {
       appendLog("❌ Error loading teacher visuals.", "error");
     }
@@ -407,12 +570,29 @@ const Dashboard = ({ onLogout }) => {
     setIsProcessingAI(false);
   };
 
+<<<<<<< HEAD
   // ---------------------------------------------------------------------------
   // ECHARTS RENDERING - COMPLETE VERSION
   // ---------------------------------------------------------------------------
   // ---------------------------------------------------------------------------
   // ECHARTS RENDERING - SEPARATED EFFECTS
   // ---------------------------------------------------------------------------
+=======
+  // Resize charts on window resize
+  useEffect(() => {
+    const onResize = () => {
+      radarInstanceRef.current?.resize?.();
+      barInstanceRef.current?.resize?.();
+      lineInstanceRef.current?.resize?.();
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  // ---------------- ECHARTS ----------------
+  useEffect(() => {
+    if (!visualData || !Array.isArray(visualData) || visualData.length === 0) return;
+>>>>>>> 90c4f33d55caf13cfdac6bcfdd68e69aacb99eda
 
   // 1. RADAR CHART
   useEffect(() => {
@@ -423,6 +603,7 @@ const Dashboard = ({ onLogout }) => {
       "#06b6d4", "#84cc16", "#ec4899", "#6366f1", "#0ea5e9"
     ];
 
+<<<<<<< HEAD
     const chartInstance = echarts.getInstanceByDom(studentRadarRef.current);
     if (chartInstance) {
       echarts.dispose(chartInstance);
@@ -614,6 +795,97 @@ const Dashboard = ({ onLogout }) => {
               const index = params.dataIndex;
               const student = studentVisual[index];
               return student.riskLevel === "High" ? "High" : "";
+=======
+    // Radar
+    if (radarChartRef.current) {
+      echarts.dispose(radarChartRef.current);
+      const chart = echarts.init(radarChartRef.current);
+      radarInstanceRef.current = chart;
+
+      chart.setOption({
+        title: { text: "Teacher Skill Radar", left: "center" },
+        tooltip: { trigger: "item" },
+
+        // ✅ Vertical legend + enough height to show all 10 (scroll if needed)
+        legend: {
+          top: "middle",
+          right: 10,
+          orient: "vertical",
+          type: "scroll",
+          height: "80%",
+          itemGap: 10,
+          textStyle: { fontSize: 12 },
+          data: names,
+        },
+
+        radar: {
+          radius: "48%",
+          center: ["38%", "50%"],
+
+          name: {
+            fontSize: 12,
+            color: "#333",
+            formatter: (name) => name.replace("-", "-\n"),
+          },
+          nameGap: 18,
+
+          indicator: [
+            { name: "Classroom", max: 5 },
+            { name: "Differentiation", max: 5 },
+            { name: "Soc-Emotional", max: 5 },
+            { name: "Numeracy", max: 5 },
+            { name: "Fine Motor", max: 5 },
+            { name: "Creative Arts", max: 5 },
+          ],
+        },
+
+        series: radarScores.map((scores, i) => ({
+          type: "radar",
+          name: names[i],
+          data: [scores],
+          lineStyle: { width: 2, color: colors[i % colors.length] },
+          itemStyle: { color: colors[i % colors.length] },
+          areaStyle: { opacity: 0.12, color: colors[i % colors.length] },
+        })),
+      });
+    }
+
+    // Bar
+    if (barChartRef.current) {
+      echarts.dispose(barChartRef.current);
+      const chart = echarts.init(barChartRef.current);
+      barInstanceRef.current = chart;
+
+      chart.setOption({
+        title: { text: "Suitability Scores", left: "center" },
+        tooltip: {
+          trigger: "axis",
+          axisPointer: { type: "shadow" },
+          formatter: (params) => {
+            const p = params[0];
+            return `${p.axisValue}<br/>Suitability Score: <b>${p.data}</b>`;
+          },
+        },
+        grid: { left: 50, right: 30, top: 80, bottom: 140, containLabel: true },
+        xAxis: {
+          type: "category",
+          data: names,
+          axisTick: { alignWithLabel: true },
+          axisLabel: {
+            interval: 0,
+            rotate: 40,
+            hideOverlap: false,
+          },
+        },
+        yAxis: { type: "value" },
+        series: [
+          {
+            type: "bar",
+            data: suitability,
+            barWidth: "55%",
+            itemStyle: {
+              color: (p) => colors[p.dataIndex % colors.length],
+>>>>>>> 90c4f33d55caf13cfdac6bcfdd68e69aacb99eda
             },
             color: 'white',
             fontWeight: 'bold'
@@ -628,6 +900,7 @@ const Dashboard = ({ onLogout }) => {
             color: "#f59e0b",
             borderRadius: [4, 4, 0, 0]
           },
+<<<<<<< HEAD
           barWidth: "60%",
           label: {
             show: true,
@@ -665,6 +938,57 @@ const Dashboard = ({ onLogout }) => {
         }
       ]
     });
+=======
+        ],
+      });
+    }
+
+    // Line
+    if (lineChartRef.current) {
+      echarts.dispose(lineChartRef.current);
+      const chart = echarts.init(lineChartRef.current);
+      lineInstanceRef.current = chart;
+
+      chart.setOption({
+        title: { text: "Experience Years", left: "center" },
+        tooltip: {
+          trigger: "axis",
+          formatter: (params) => {
+            const p = params[0];
+            return `${p.axisValue}<br/>Experience: <b>${p.data}</b> years`;
+          },
+        },
+        grid: { left: 50, right: 30, top: 80, bottom: 140, containLabel: true },
+        xAxis: {
+          type: "category",
+          data: names,
+          axisLabel: {
+            interval: 0,
+            rotate: 40,
+            hideOverlap: false,
+          },
+        },
+        yAxis: { type: "value" },
+        series: [
+          {
+            type: "line",
+            smooth: true,
+            data: expYears,
+            itemStyle: { color: "#4f46e5" },
+            symbolSize: 9,
+            lineStyle: { width: 3 },
+          },
+        ],
+      });
+    }
+
+    setTimeout(() => {
+      radarInstanceRef.current?.resize?.();
+      barInstanceRef.current?.resize?.();
+      lineInstanceRef.current?.resize?.();
+    }, 50);
+  }, [visualData]);
+>>>>>>> 90c4f33d55caf13cfdac6bcfdd68e69aacb99eda
 
     const handleResize = () => chart.resize();
     window.addEventListener("resize", handleResize);
@@ -690,7 +1014,10 @@ const Dashboard = ({ onLogout }) => {
             Use the tabs below to send updates, view status, or run AI analysis.
           </p>
 
+<<<<<<< HEAD
           {/* ---------------- TAB BUTTONS ---------------- */}
+=======
+>>>>>>> 90c4f33d55caf13cfdac6bcfdd68e69aacb99eda
           <div className="tabs">
             <button className={`tab-btn ${activeTab === "daily" ? "active" : ""}`}
               onClick={() => setActiveTab("daily")}>Daily</button>
@@ -707,6 +1034,7 @@ const Dashboard = ({ onLogout }) => {
               onClick={() => setActiveTab("ai")}>🧠 Teacher Performance</button>
           </div>
 
+<<<<<<< HEAD
           {/* ---------------- TAB CONTENT ---------------- */}
 
           {/* DAILY TAB */}
@@ -740,6 +1068,81 @@ const Dashboard = ({ onLogout }) => {
                 </button>
                 <button className="load-visual-btn" onClick={loadMockStudentData} style={{ background: "#6b7280" }}>
                   🧪 Load Mock Data
+=======
+          <div className="dashboard-content">
+            {activeTab === "daily" && (
+              <div className="tab-panel">
+                <h3>📆 Daily Student Reports</h3>
+                <p>Send WhatsApp updates to parents.</p>
+                <button className="send-btn" onClick={sendDaily}>
+                  🚀 Send Daily Reports
+                </button>
+              </div>
+            )}
+
+            {activeTab === "menu" && (
+              <div className="tab-panel">
+                <h3>🍱 Weekly Menu</h3>
+                <p>Message all parents with the weekly food menu.</p>
+                <button className="send-btn" onClick={sendWeeklyMenu}>
+                  🍽 Send Weekly Menu
+                </button>
+              </div>
+            )}
+
+            {activeTab === "status" && (
+              <div className="tab-panel">
+                <h3>📊 Student Report Status</h3>
+                <button
+                  className="send-btn"
+                  style={{ background: "#8b5cf6" }}
+                  onClick={fetchStudentStatus}
+                >
+                  📊 Check Status
+                </button>
+              </div>
+            )}
+
+            {activeTab === "ai" && (
+              <div className="tab-panel">
+                <h3>🧠 Teacher Performance</h3>
+                <p>Generate AI insights and visual analytics for each teacher.</p>
+
+                <button
+                  className="send-btn"
+                  style={{ background: "#ef4444" }}
+                  onClick={triggerN8n}
+                  disabled={isProcessingAI}
+                >
+                  {isProcessingAI ? "⏳ Processing..." : "🚀 Generate AI Report"}
+                </button>
+
+                {Array.isArray(visualData) && visualData.length > 0 && (
+                  <>
+                    {/* BIG visuals */}
+                    <div ref={radarChartRef} style={{ height: 560, marginTop: 30 }} />
+                    <div ref={barChartRef} style={{ height: 480, marginTop: 40 }} />
+                    <div ref={lineChartRef} style={{ height: 480, marginTop: 40 }} />
+                  </>
+                )}
+
+                {teacherReport?.output && (
+                  <div
+                    className="teacher-report-box"
+                    dangerouslySetInnerHTML={{
+                      __html: renderMarkdownAsHtml(teacherReport.output),
+                    }}
+                  />
+                )}
+              </div>
+            )}
+
+            <div className="logs-section">
+              <div className="logs-header">
+                <h3>Logs</h3>
+                <button className="clear-btn" onClick={clearLogs}>
+                  🧹 Clear Logs
+>>>>>>> 90c4f33d55caf13cfdac6bcfdd68e69aacb99eda
                 </button>
               </div>
 
@@ -867,6 +1270,7 @@ const Dashboard = ({ onLogout }) => {
                 </div>
               )}
             </div>
+<<<<<<< HEAD
           )}
 
           {/* AI TEACHER TAB */}
@@ -896,6 +1300,8 @@ const Dashboard = ({ onLogout }) => {
                 ))}
               </ul>
             )}
+=======
+>>>>>>> 90c4f33d55caf13cfdac6bcfdd68e69aacb99eda
           </div>
 
         </div>
