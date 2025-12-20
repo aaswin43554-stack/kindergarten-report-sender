@@ -12,6 +12,15 @@ const InlineStyles = () => (
         padding-top: 20px;
         min-height: 100vh;
       }
+
+      .dashboard-container {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 0 16px 40px;
+        box-sizing: border-box;
+      }
       
       .dashboard-title {
         font-size: 2.5rem;
@@ -21,21 +30,24 @@ const InlineStyles = () => (
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         text-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        text-align: center;
       }
 
       .dashboard-subtitle {
         color: #64748b;
         font-size: 1.1rem;
         margin-bottom: 2rem;
+        text-align: center;
+        max-width: 900px;
       }
 
       /* Tabs */
       .tabs {
         display: flex;
-        gap: 1rem;
-        margin-bottom: 2rem;
-        flex-wrap: wrap;
         justify-content: center;
+        gap: 10px;
+        margin-bottom: 25px;
+        flex-wrap: wrap;
       }
 
       .tab-btn {
@@ -55,13 +67,10 @@ const InlineStyles = () => (
         transform: translateY(-2px);
       }
 
-  .tabs {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    margin-bottom: 25px;
-    flex-wrap: wrap;
-  }
+      .tab-btn.active {
+        background: rgba(139, 92, 246, 0.18);
+        color: #4c1d95;
+      }
 
       /* Tab Panel */
       .tab-panel {
@@ -82,33 +91,30 @@ const InlineStyles = () => (
         to { opacity: 1; transform: translateY(0); }
       }
 
-      /* Student Charts */
-      .student-charts-container {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-        gap: 2rem;
-        width: 100%;
-        margin-top: 2rem;
-      }
-
-      .student-chart {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 16px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        height: 400px;
-        position: relative;
-      }
-
-      .chart-title {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: #1e293b;
-        margin-bottom: 1rem;
-        text-align: center;
-      }
-
       /* Buttons */
+      .send-btn {
+        background: #10b981;
+        color: white;
+        border: none;
+        padding: 0.9rem 1.4rem;
+        border-radius: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-top: 12px;
+      }
+
+      .send-btn:hover {
+        filter: brightness(0.95);
+        transform: translateY(-2px);
+      }
+
+      .send-btn:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+        transform: none;
+      }
+
       .load-visual-btn {
         background: #8b5cf6;
         color: white;
@@ -118,13 +124,47 @@ const InlineStyles = () => (
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s;
-        margin-right: 1rem;
-        margin-bottom: 1rem;
+        margin-right: 0.8rem;
+        margin-bottom: 0.8rem;
       }
 
       .load-visual-btn:hover {
         background: #7c3aed;
         transform: translateY(-2px);
+      }
+
+      .student-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin-top: 12px;
+      }
+
+      /* Student Charts */
+      .student-charts-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 2rem;
+        width: 100%;
+        margin-top: 1.5rem;
+      }
+
+      .student-chart {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 16px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        height: 420px;
+        position: relative;
+      }
+
+      .chart-title {
+        font-size: 1.1rem;
+        font-weight: 800;
+        color: #1e293b;
+        margin-bottom: 1rem;
+        text-align: center;
       }
 
       /* Logs */
@@ -134,7 +174,7 @@ const InlineStyles = () => (
         background: rgba(30, 41, 59, 0.95);
         border-radius: 16px;
         padding: 1.5rem;
-        margin-top: 2rem;
+        margin-top: 1.5rem;
         color: #e2e8f0;
         box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
       }
@@ -148,97 +188,97 @@ const InlineStyles = () => (
         padding-bottom: 0.5rem;
       }
 
+      .clear-btn {
+        border: none;
+        background: rgba(148, 163, 184, 0.18);
+        color: #e2e8f0;
+        padding: 8px 12px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 700;
+      }
+
+      .clear-btn:hover {
+        background: rgba(148, 163, 184, 0.28);
+      }
+
       .logs-list {
         list-style: none;
         padding: 0;
         margin: 0;
         max-height: 300px;
         overflow-y: auto;
-        font-family: 'Fira Code', monospace;
+        font-family: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
         font-size: 0.9rem;
       }
 
-<<<<<<< HEAD
       .log-item {
         padding: 0.5rem;
-        border-bottom: 1px solid rgba(255,255,255,0.05);
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        line-height: 1.35;
+        white-space: pre-wrap;
       }
-      
-      .log-item.success { color: #4ade80; }
-      .log-item.warning { color: #fbbf24; }
-      .log-item.error { color: #f87171; }
+
+      .log-item.green { color: #4ade80; }
+      .log-item.yellow { color: #fbbf24; }
+      .log-item.red { color: #f87171; }
       .log-item.info { color: #94a3b8; }
+
+      /* ------------------------------------------------------------------ */
+      /* TEACHER PERFORMANCE AI REPORT STYLES                               */
+      /* ------------------------------------------------------------------ */
+      .teacher-report-box {
+        background: white;
+        border: 1px solid #e5e7eb;
+        padding: 22px;
+        margin-top: 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+        text-align: left;
+        max-height: 70vh;
+        overflow-y: auto;
+        line-height: 1.55;
+      }
+
+      .teacher-name {
+        font-size: 1.3rem;
+        margin-top: 16px;
+        color: #111;
+        display: block;
+      }
+
+      .teacher-verdict {
+        font-size: 1.05rem;
+        color: #444;
+        margin-bottom: 4px;
+        display: block;
+      }
+
+      .bullet {
+        margin-left: 22px;
+        display: block;
+      }
+
+      .section-heading {
+        margin-top: 10px;
+        font-weight: 800;
+      }
+
+      .no-data-message {
+        background: rgba(255,255,255,0.7);
+        border-radius: 14px;
+        padding: 16px;
+        border: 1px dashed rgba(100,116,139,0.5);
+        color: #334155;
+      }
     `}
   </style>
-
-  <style>
-  {`
-    .log-item {
-      padding: 4px 0;
-      font-size: 0.95rem;
-    }
-  `}
-</style>
-
-
-
-  .log-item.green { color: #16a34a; }
-  .log-item.yellow { color: #d97706; }
-  .log-item.red { color: #dc2626; }
-
-  /* ------------------------------------------------------------------ */
-  /* TEACHER PERFORMANCE AI REPORT STYLES                               */
-  /* ------------------------------------------------------------------ */
-  .teacher-report-box {
-    background: white;
-    border: 1px solid #e5e7eb;
-    padding: 22px;
-    margin-top: 20px;
-    border-radius: 12px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.06);
-    text-align: left;
-    max-height: 70vh;
-    overflow-y: auto;
-    line-height: 1.55;
-  }
-
-  .teacher-name {
-    font-size: 1.3rem;
-    margin-top: 16px;
-    color: #111;
-    display: block;
-  }
-
-  .teacher-verdict {
-    font-size: 1.05rem;
-    color: #444;
-    margin-bottom: 4px;
-    display: block;
-  }
-
-  .bullet {
-    margin-left: 22px;
-    display: block;
-  }
-
-  .section-heading {
-    margin-top: 10px;
-    font-weight: 700;
-  }
-  `}</style>
->>>>>>> 90c4f33d55caf13cfdac6bcfdd68e69aacb99eda
 );
 
-// -----------------------------------------------------------------------------
-// MAIN COMPONENT - COMPLETE VERSION
-// -----------------------------------------------------------------------------
-<<<<<<< HEAD
-const Dashboard = ({ onLogout }) => {
-=======
 const renderMarkdownAsHtml = (markdownText) => {
   if (!markdownText) return "";
 
-  let text = markdownText.replace(/\r\n/g, "\n").trim();
+  let text = String(markdownText).replace(/\r\n/g, "\n").trim();
 
   const PARA_TOKEN = "__PARA_BREAK__";
   text = text.replace(/\n{2,}/g, PARA_TOKEN);
@@ -289,11 +329,7 @@ const renderMarkdownAsHtml = (markdownText) => {
   return html;
 };
 
-// -----------------------------------------------------------------------------
-// MAIN COMPONENT
-// -----------------------------------------------------------------------------
-const Dashboard = () => {
->>>>>>> 90c4f33d55caf13cfdac6bcfdd68e69aacb99eda
+const Dashboard = ({ onLogout }) => {
   const navigate = useNavigate();
 
   // -------------------- STATES --------------------
@@ -303,6 +339,7 @@ const Dashboard = () => {
 
   const [teacherReport, setTeacherReport] = useState(null);
   const [visualData, setVisualData] = useState(null);
+
   const [studentVisual, setStudentVisual] = useState(null);
   const [isProcessingAI, setIsProcessingAI] = useState(false);
 
@@ -311,35 +348,32 @@ const Dashboard = () => {
   const barChartRef = useRef(null);
   const lineChartRef = useRef(null);
 
-<<<<<<< HEAD
   const studentRadarRef = useRef(null);
   const studentRiskRef = useRef(null);
 
+  // -------------------- ECHART INSTANCES --------------------
+  const radarInstanceRef = useRef(null);
+  const barInstanceRef = useRef(null);
+  const lineInstanceRef = useRef(null);
+
   // -------------------- HELPERS --------------------
   const appendLog = (msg, type = "info") => {
-    const colorClass = {
-      success: "green",
-      warning: "yellow",
-      error: "red",
-      info: ""
-    }[type];
+    const colorClass =
+      {
+        success: "green",
+        warning: "yellow",
+        error: "red",
+        info: "info",
+      }[type] || "info";
 
     setLogs((prev) => [
       ...prev,
       {
         text: typeof msg === "string" ? msg : JSON.stringify(msg),
-        type: colorClass
-      }
+        type: colorClass,
+      },
     ]);
   };
-=======
-  const radarInstanceRef = useRef(null);
-  const barInstanceRef = useRef(null);
-  const lineInstanceRef = useRef(null);
-
-  const appendLog = (msg) =>
-    setLogs((prev) => [...prev, typeof msg === "string" ? msg : JSON.stringify(msg)]);
->>>>>>> 90c4f33d55caf13cfdac6bcfdd68e69aacb99eda
 
   const clearLogs = () => setLogs([]);
 
@@ -348,8 +382,26 @@ const Dashboard = () => {
     navigate("/");
   };
 
+  // Resize charts on window resize
+  useEffect(() => {
+    const onResize = () => {
+      radarInstanceRef.current?.resize?.();
+      barInstanceRef.current?.resize?.();
+      lineInstanceRef.current?.resize?.();
+
+      // student charts resize
+      const sr = studentRadarRef.current ? echarts.getInstanceByDom(studentRadarRef.current) : null;
+      const sk = studentRiskRef.current ? echarts.getInstanceByDom(studentRiskRef.current) : null;
+      sr?.resize?.();
+      sk?.resize?.();
+    };
+
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   // ---------------------------------------------------------------------------
-  // DAILY REPORTS - ADDED THIS FUNCTION
+  // DAILY REPORTS (SSE)
   // ---------------------------------------------------------------------------
   const sendDaily = () => {
     setLogs([]);
@@ -361,18 +413,18 @@ const Dashboard = () => {
       if (e.data === "[DONE]") {
         es.close();
         setIsSending(false);
-      } else appendLog(e.data);
+      } else appendLog(e.data, "info");
     };
 
     es.onerror = () => {
-      appendLog("❌ Error sending daily reports.");
+      appendLog("❌ Error sending daily reports.", "error");
       es.close();
       setIsSending(false);
     };
   };
 
   // ---------------------------------------------------------------------------
-  // WEEKLY MENU - ADDED THIS FUNCTION
+  // WEEKLY MENU (SSE)
   // ---------------------------------------------------------------------------
   const sendWeeklyMenu = () => {
     setLogs([]);
@@ -384,18 +436,18 @@ const Dashboard = () => {
       if (e.data === "[DONE]") {
         es.close();
         setIsSending(false);
-      } else appendLog(e.data);
+      } else appendLog(e.data, "info");
     };
 
     es.onerror = () => {
-      appendLog("❌ Error sending weekly menu.");
+      appendLog("❌ Error sending weekly menu.", "error");
       es.close();
       setIsSending(false);
     };
   };
 
   // ---------------------------------------------------------------------------
-  // STUDENT STATUS - ADDED THIS FUNCTION
+  // STUDENT STATUS (TEXT / ORDERED message from backend)
   // ---------------------------------------------------------------------------
   const fetchStudentStatus = async () => {
     appendLog("📊 Fetching student status...", "info");
@@ -416,23 +468,18 @@ const Dashboard = () => {
 
     try {
       const response = await fetch("/api/student-visual");
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const json = await response.json();
-      console.log("Student visual data:", json); // Debug log
 
       if (!json.students || !Array.isArray(json.students)) {
-        appendLog(`❌ Invalid data format from server.`, "error");
+        appendLog("❌ Invalid data format from server.", "error");
         return;
       }
 
       setStudentVisual(json.students);
       appendLog(`✅ Loaded data for ${json.students.length} students.`, "success");
-
     } catch (err) {
-      console.error("Fetch error:", err);
       appendLog(`❌ Student visuals fetch failed: ${err.message}`, "error");
     }
   };
@@ -444,46 +491,11 @@ const Dashboard = () => {
     appendLog("📋 Loading mock student data for testing...", "warning");
 
     const mockStudents = [
-      {
-        name: "Emma Johnson",
-        avgAppetite: 4.2,
-        avgSleep: 3.8,
-        avgBehaviour: 4.5,
-        avgMood: 4.0,
-        riskLevel: "Low"
-      },
-      {
-        name: "Noah Smith",
-        avgAppetite: 2.8,
-        avgSleep: 3.0,
-        avgBehaviour: 2.5,
-        avgMood: 2.2,
-        riskLevel: "High"
-      },
-      {
-        name: "Olivia Davis",
-        avgAppetite: 3.5,
-        avgSleep: 4.0,
-        avgBehaviour: 3.8,
-        avgMood: 3.5,
-        riskLevel: "Medium"
-      },
-      {
-        name: "Liam Wilson",
-        avgAppetite: 4.5,
-        avgSleep: 4.2,
-        avgBehaviour: 4.8,
-        avgMood: 4.5,
-        riskLevel: "Low"
-      },
-      {
-        name: "Sophia Brown",
-        avgAppetite: 3.0,
-        avgSleep: 2.5,
-        avgBehaviour: 3.2,
-        avgMood: 2.8,
-        riskLevel: "High"
-      }
+      { name: "Emma Johnson", avgAppetite: 4.2, avgSleep: 3.8, avgBehaviour: 4.5, avgMood: 4.0, riskLevel: "Low" },
+      { name: "Noah Smith", avgAppetite: 2.8, avgSleep: 3.0, avgBehaviour: 2.5, avgMood: 2.2, riskLevel: "High" },
+      { name: "Olivia Davis", avgAppetite: 3.5, avgSleep: 4.0, avgBehaviour: 3.8, avgMood: 3.5, riskLevel: "Medium" },
+      { name: "Liam Wilson", avgAppetite: 4.5, avgSleep: 4.2, avgBehaviour: 4.8, avgMood: 4.5, riskLevel: "Low" },
+      { name: "Sophia Brown", avgAppetite: 3.0, avgSleep: 2.5, avgBehaviour: 3.2, avgMood: 2.8, riskLevel: "High" },
     ];
 
     setStudentVisual(mockStudents);
@@ -491,56 +503,30 @@ const Dashboard = () => {
   };
 
   // ---------------------------------------------------------------------------
-  // TEACHER VISUAL DATA - ADDED THIS FUNCTION
+  // TEACHER VISUAL DATA
   // ---------------------------------------------------------------------------
   const fetchVisualData = async () => {
     try {
       const response = await fetch("/api/teacher-visual");
-      let raw = await response.json();
+      const json = await response.json();
 
-<<<<<<< HEAD
-      let teachers = raw?.[0]?.teachers || raw.teachers || raw.data;
-      if (!teachers) return appendLog("❌ Visual data missing.", "error");
-
-      setVisualData(teachers);
-      appendLog("✅ Teacher visual loaded.", "success");
-=======
-      let raw;
-      try {
-        raw = JSON.parse(rawText);
-      } catch {
-        appendLog("❌ Could not parse AI visual data JSON.");
-        return;
-      }
-
-      let teachers = null;
-
-      if (Array.isArray(raw?.teachers)) {
-        teachers = raw.teachers;
-      } else if (Array.isArray(raw)) {
-        const collected = raw.flatMap((item) =>
-          Array.isArray(item?.teachers) ? item.teachers : []
-        );
-        teachers = collected.length ? collected : raw;
-      } else if (Array.isArray(raw?.data)) {
-        teachers = raw.data;
-      }
+      // server returns { teachers: [...] }
+      const teachers = Array.isArray(json?.teachers) ? json.teachers : Array.isArray(json) ? json : null;
 
       if (!teachers || teachers.length === 0) {
-        appendLog("❌ Visual data missing or in wrong format.");
+        appendLog("❌ Visual data missing or wrong format.", "error");
         return;
       }
 
       setVisualData(teachers);
-      appendLog(`✅ Visual data loaded for ${teachers.length} teachers.`);
->>>>>>> 90c4f33d55caf13cfdac6bcfdd68e69aacb99eda
+      appendLog(`✅ Visual data loaded for ${teachers.length} teachers.`, "success");
     } catch {
       appendLog("❌ Error loading teacher visuals.", "error");
     }
   };
 
   // ---------------------------------------------------------------------------
-  // AI TEACHER REPORT - ADDED THIS FUNCTION
+  // AI TEACHER REPORT (n8n)
   // ---------------------------------------------------------------------------
   const triggerN8n = async () => {
     setIsProcessingAI(true);
@@ -560,6 +546,7 @@ const Dashboard = () => {
       setTeacherReport(json);
       appendLog("✅ AI teacher report generated.", "success");
 
+      // load visuals after report
       fetchVisualData();
     } catch {
       appendLog("❌ AI report failed.", "error");
@@ -568,232 +555,30 @@ const Dashboard = () => {
     setIsProcessingAI(false);
   };
 
-<<<<<<< HEAD
   // ---------------------------------------------------------------------------
-  // ECHARTS RENDERING - COMPLETE VERSION
+  // TEACHER ECHARTS (Radar + Bar + Line)
   // ---------------------------------------------------------------------------
-  // ---------------------------------------------------------------------------
-  // ECHARTS RENDERING - SEPARATED EFFECTS
-  // ---------------------------------------------------------------------------
-=======
-  // Resize charts on window resize
-  useEffect(() => {
-    const onResize = () => {
-      radarInstanceRef.current?.resize?.();
-      barInstanceRef.current?.resize?.();
-      lineInstanceRef.current?.resize?.();
-    };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-
-  // ---------------- ECHARTS ----------------
   useEffect(() => {
     if (!visualData || !Array.isArray(visualData) || visualData.length === 0) return;
->>>>>>> 90c4f33d55caf13cfdac6bcfdd68e69aacb99eda
-
-  // 1. RADAR CHART
-  useEffect(() => {
-    if (!studentVisual || !studentRadarRef.current || studentVisual.length === 0) return;
 
     const colors = [
       "#3b82f6", "#22c55e", "#ef4444", "#a855f7", "#f97316",
       "#06b6d4", "#84cc16", "#ec4899", "#6366f1", "#0ea5e9"
     ];
 
-<<<<<<< HEAD
-    const chartInstance = echarts.getInstanceByDom(studentRadarRef.current);
-    if (chartInstance) {
-      echarts.dispose(chartInstance);
-    }
+    const names = visualData.map((t) => t.name || "Teacher");
+    const radarScores = visualData.map((t) => ([
+      Number(t.classroomManagement ?? 0),
+      Number(t.differentiateInstruction ?? 0),
+      Number(t.socialEmotional ?? 0),
+      Number(t.numeracy ?? 0),
+      Number(t.fineMotor ?? 0),
+      Number(t.creativeArts ?? 0),
+    ]));
 
-    const chart = echarts.init(studentRadarRef.current);
-    const names = studentVisual.map((s) => s.name);
+    const suitability = visualData.map((t) => Number(t.suitabilityScore ?? 0));
+    const expYears = visualData.map((t) => Number(t.experienceYears ?? 0));
 
-    chart.setOption({
-      title: {
-        text: "Student Wellbeing Radar",
-        left: "center",
-        textStyle: { fontSize: 18, fontWeight: "bold" }
-      },
-      legend: {
-        bottom: 10,
-        type: "scroll",
-        data: names,
-        textStyle: { fontSize: 12 }
-      },
-      tooltip: {
-        trigger: "item",
-        formatter: function (params) {
-          const student = studentVisual[params.seriesIndex];
-          return `
-            <strong>${student.name}</strong><br/>
-            Appetite: ${student.avgAppetite.toFixed(1)}/5<br/>
-            Sleep: ${student.avgSleep.toFixed(1)}/5<br/>
-            Behaviour: ${student.avgBehaviour.toFixed(1)}/5<br/>
-            Mood: ${student.avgMood.toFixed(1)}/5
-          `;
-        }
-      },
-      radar: {
-        center: ["50%", "50%"],
-        radius: "65%",
-        indicator: [
-          { name: "Appetite", max: 5 },
-          { name: "Sleep", max: 5 },
-          { name: "Behaviour", max: 5 },
-          { name: "Mood", max: 5 }
-        ],
-        splitArea: {
-          areaStyle: {
-            color: ["#f8fafc", "#e2e8f0", "#cbd5e1"],
-            shadowColor: "rgba(0, 0, 0, 0.1)"
-          }
-        }
-      },
-      series: studentVisual.map((student, index) => ({
-        type: "radar",
-        name: student.name,
-        data: [[
-          student.avgAppetite,
-          student.avgSleep,
-          student.avgBehaviour,
-          student.avgMood
-        ]],
-        symbol: "circle",
-        symbolSize: 8,
-        itemStyle: {
-          color: colors[index % colors.length],
-          borderWidth: 2
-        },
-        lineStyle: {
-          width: 3,
-          color: colors[index % colors.length]
-        },
-        areaStyle: {
-          opacity: 0.1,
-          color: colors[index % colors.length]
-        }
-      }))
-    });
-
-    const handleResize = () => chart.resize();
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      chart.dispose();
-    };
-  }, [studentVisual]);
-
-  // 2. RISK CHART
-  useEffect(() => {
-    if (!studentVisual || !studentRiskRef.current || studentVisual.length === 0) return;
-
-    const chartInstance = echarts.getInstanceByDom(studentRiskRef.current);
-    if (chartInstance) {
-      echarts.dispose(chartInstance);
-    }
-
-    const chart = echarts.init(studentRiskRef.current);
-    const names = studentVisual.map((s) => s.name);
-
-    // FIX: Prepare data correctly for stacked bar chart
-    const highRiskData = [];
-    const mediumRiskData = [];
-    const lowRiskData = [];
-
-    studentVisual.forEach((student) => {
-      switch (student.riskLevel) {
-        case "High":
-          highRiskData.push(1);
-          mediumRiskData.push(0);
-          lowRiskData.push(0);
-          break;
-        case "Medium":
-          highRiskData.push(0);
-          mediumRiskData.push(1);
-          lowRiskData.push(0);
-          break;
-        case "Low":
-        default:
-          highRiskData.push(0);
-          mediumRiskData.push(0);
-          lowRiskData.push(1);
-          break;
-      }
-    });
-
-    chart.setOption({
-      title: {
-        text: "Student Risk Levels",
-        left: "center",
-        textStyle: { fontSize: 18, fontWeight: "bold" }
-      },
-      legend: {
-        bottom: 10,
-        data: ["High Risk", "Medium Risk", "Low Risk"],
-        textStyle: { fontSize: 12 }
-      },
-      tooltip: {
-        trigger: "axis",
-        axisPointer: { type: "shadow" },
-        formatter: function (params) {
-          const index = params[0].dataIndex;
-          const student = studentVisual[index];
-          let riskColor = "#10b981"; // default green
-
-          if (student.riskLevel === "High") riskColor = "#ef4444";
-          else if (student.riskLevel === "Medium") riskColor = "#f59e0b";
-
-          return `<strong>${student.name}</strong><br/>Risk Level: <strong style="color: ${riskColor}">${student.riskLevel}</strong>`;
-        }
-      },
-      grid: {
-        left: "3%",
-        right: "4%",
-        bottom: "15%",
-        top: "15%",
-        containLabel: true
-      },
-      xAxis: {
-        type: "category",
-        data: names,
-        axisLabel: {
-          interval: 0,
-          rotate: 30,
-          fontSize: 12,
-          margin: 10
-        }
-      },
-      yAxis: {
-        type: "value",
-        min: 0,
-        max: 1,
-        axisLabel: {
-          formatter: (value) => value === 1 ? "✓" : "",
-          fontSize: 12
-        }
-      },
-      series: [
-        {
-          name: "High Risk",
-          type: "bar",
-          stack: "total",
-          data: highRiskData,
-          itemStyle: {
-            color: "#ef4444",
-            borderRadius: [4, 4, 0, 0]
-          },
-          barWidth: "60%",
-          label: {
-            show: true,
-            position: 'inside',
-            formatter: (params) => {
-              const index = params.dataIndex;
-              const student = studentVisual[index];
-              return student.riskLevel === "High" ? "High" : "";
-=======
     // Radar
     if (radarChartRef.current) {
       echarts.dispose(radarChartRef.current);
@@ -804,7 +589,6 @@ const Dashboard = () => {
         title: { text: "Teacher Skill Radar", left: "center" },
         tooltip: { trigger: "item" },
 
-        // ✅ Vertical legend + enough height to show all 10 (scroll if needed)
         legend: {
           top: "middle",
           right: 10,
@@ -819,14 +603,8 @@ const Dashboard = () => {
         radar: {
           radius: "48%",
           center: ["38%", "50%"],
-
-          name: {
-            fontSize: 12,
-            color: "#333",
-            formatter: (name) => name.replace("-", "-\n"),
-          },
+          name: { fontSize: 12, color: "#333" },
           nameGap: 18,
-
           indicator: [
             { name: "Classroom", max: 5 },
             { name: "Differentiation", max: 5 },
@@ -869,11 +647,7 @@ const Dashboard = () => {
           type: "category",
           data: names,
           axisTick: { alignWithLabel: true },
-          axisLabel: {
-            interval: 0,
-            rotate: 40,
-            hideOverlap: false,
-          },
+          axisLabel: { interval: 0, rotate: 40, hideOverlap: false },
         },
         yAxis: { type: "value" },
         series: [
@@ -883,60 +657,9 @@ const Dashboard = () => {
             barWidth: "55%",
             itemStyle: {
               color: (p) => colors[p.dataIndex % colors.length],
->>>>>>> 90c4f33d55caf13cfdac6bcfdd68e69aacb99eda
+              borderRadius: [6, 6, 0, 0],
             },
-            color: 'white',
-            fontWeight: 'bold'
-          }
-        },
-        {
-          name: "Medium Risk",
-          type: "bar",
-          stack: "total",
-          data: mediumRiskData,
-          itemStyle: {
-            color: "#f59e0b",
-            borderRadius: [4, 4, 0, 0]
           },
-<<<<<<< HEAD
-          barWidth: "60%",
-          label: {
-            show: true,
-            position: 'inside',
-            formatter: (params) => {
-              const index = params.dataIndex;
-              const student = studentVisual[index];
-              return student.riskLevel === "Medium" ? "Medium" : "";
-            },
-            color: 'white',
-            fontWeight: 'bold'
-          }
-        },
-        {
-          name: "Low Risk",
-          type: "bar",
-          stack: "total",
-          data: lowRiskData,
-          itemStyle: {
-            color: "#10b981",
-            borderRadius: [4, 4, 0, 0]
-          },
-          barWidth: "60%",
-          label: {
-            show: true,
-            position: 'inside',
-            formatter: (params) => {
-              const index = params.dataIndex;
-              const student = studentVisual[index];
-              return student.riskLevel === "Low" ? "Low" : "";
-            },
-            color: 'white',
-            fontWeight: 'bold'
-          }
-        }
-      ]
-    });
-=======
         ],
       });
     }
@@ -960,11 +683,7 @@ const Dashboard = () => {
         xAxis: {
           type: "category",
           data: names,
-          axisLabel: {
-            interval: 0,
-            rotate: 40,
-            hideOverlap: false,
-          },
+          axisLabel: { interval: 0, rotate: 40, hideOverlap: false },
         },
         yAxis: { type: "value" },
         series: [
@@ -972,7 +691,6 @@ const Dashboard = () => {
             type: "line",
             smooth: true,
             data: expYears,
-            itemStyle: { color: "#4f46e5" },
             symbolSize: 9,
             lineStyle: { width: 3 },
           },
@@ -986,20 +704,124 @@ const Dashboard = () => {
       lineInstanceRef.current?.resize?.();
     }, 50);
   }, [visualData]);
->>>>>>> 90c4f33d55caf13cfdac6bcfdd68e69aacb99eda
 
-    const handleResize = () => chart.resize();
-    window.addEventListener("resize", handleResize);
+  // ---------------------------------------------------------------------------
+  // STUDENT ECHARTS (Radar + Risk)
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (!studentVisual || !studentRadarRef.current || studentVisual.length === 0) return;
 
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      chart.dispose();
-    };
+    // Dispose old
+    const old = echarts.getInstanceByDom(studentRadarRef.current);
+    if (old) echarts.dispose(old);
+
+    const chart = echarts.init(studentRadarRef.current);
+    const names = studentVisual.map((s) => s.name);
+
+    const colors = [
+      "#3b82f6", "#22c55e", "#ef4444", "#a855f7", "#f97316",
+      "#06b6d4", "#84cc16", "#ec4899", "#6366f1", "#0ea5e9"
+    ];
+
+    chart.setOption({
+      title: { text: "Student Wellbeing Radar", left: "center", textStyle: { fontSize: 18, fontWeight: "bold" } },
+      legend: { bottom: 10, type: "scroll", data: names, textStyle: { fontSize: 12 } },
+      tooltip: {
+        trigger: "item",
+        formatter: (params) => {
+          const student = studentVisual[params.seriesIndex];
+          return `
+            <strong>${student.name}</strong><br/>
+            Appetite: ${Number(student.avgAppetite).toFixed(1)}/5<br/>
+            Sleep: ${Number(student.avgSleep).toFixed(1)}/5<br/>
+            Behaviour: ${Number(student.avgBehaviour).toFixed(1)}/5<br/>
+            Mood: ${Number(student.avgMood).toFixed(1)}/5
+          `;
+        },
+      },
+      radar: {
+        center: ["50%", "50%"],
+        radius: "65%",
+        indicator: [
+          { name: "Appetite", max: 5 },
+          { name: "Sleep", max: 5 },
+          { name: "Behaviour", max: 5 },
+          { name: "Mood", max: 5 },
+        ],
+      },
+      series: studentVisual.map((student, index) => ({
+        type: "radar",
+        name: student.name,
+        data: [[
+          Number(student.avgAppetite) || 0,
+          Number(student.avgSleep) || 0,
+          Number(student.avgBehaviour) || 0,
+          Number(student.avgMood) || 0,
+        ]],
+        symbol: "circle",
+        symbolSize: 7,
+        itemStyle: { color: colors[index % colors.length] },
+        lineStyle: { width: 2, color: colors[index % colors.length] },
+        areaStyle: { opacity: 0.1, color: colors[index % colors.length] },
+      })),
+    });
+
+    return () => chart.dispose();
   }, [studentVisual]);
 
-  // -----------------------------------------------------------------------------
-  // UI + TABS RENDERING
-  // -----------------------------------------------------------------------------
+  useEffect(() => {
+    if (!studentVisual || !studentRiskRef.current || studentVisual.length === 0) return;
+
+    const old = echarts.getInstanceByDom(studentRiskRef.current);
+    if (old) echarts.dispose(old);
+
+    const chart = echarts.init(studentRiskRef.current);
+    const names = studentVisual.map((s) => s.name);
+
+    const highRiskData = [];
+    const mediumRiskData = [];
+    const lowRiskData = [];
+
+    studentVisual.forEach((student) => {
+      const r = String(student.riskLevel || "").toLowerCase();
+      if (r === "high") {
+        highRiskData.push(1); mediumRiskData.push(0); lowRiskData.push(0);
+      } else if (r === "medium") {
+        highRiskData.push(0); mediumRiskData.push(1); lowRiskData.push(0);
+      } else {
+        highRiskData.push(0); mediumRiskData.push(0); lowRiskData.push(1);
+      }
+    });
+
+    chart.setOption({
+      title: { text: "Student Risk Levels", left: "center", textStyle: { fontSize: 18, fontWeight: "bold" } },
+      legend: { bottom: 10, data: ["High Risk", "Medium Risk", "Low Risk"], textStyle: { fontSize: 12 } },
+      tooltip: {
+        trigger: "axis",
+        axisPointer: { type: "shadow" },
+        formatter: (params) => {
+          const index = params[0].dataIndex;
+          const student = studentVisual[index];
+          const risk = student?.riskLevel || "Low";
+          return `<strong>${student.name}</strong><br/>Risk Level: <strong>${risk}</strong>`;
+        },
+      },
+      grid: { left: "3%", right: "4%", bottom: "15%", top: "15%", containLabel: true },
+      xAxis: { type: "category", data: names, axisLabel: { interval: 0, rotate: 30, fontSize: 12, margin: 10 } },
+      yAxis: { type: "value", min: 0, max: 1, axisLabel: { formatter: (v) => (v === 1 ? "✓" : "") } },
+      series: [
+        { name: "High Risk", type: "bar", stack: "total", data: highRiskData, barWidth: "60%" },
+        { name: "Medium Risk", type: "bar", stack: "total", data: mediumRiskData, barWidth: "60%" },
+        { name: "Low Risk", type: "bar", stack: "total", data: lowRiskData, barWidth: "60%" },
+      ],
+    });
+
+    return () => chart.dispose();
+  }, [studentVisual]);
+
+  // ---------------------------------------------------------------------------
+  // UI
+  // ---------------------------------------------------------------------------
   return (
     <>
       <InlineStyles />
@@ -1012,30 +834,37 @@ const Dashboard = () => {
             Use the tabs below to send updates, view status, or run AI analysis.
           </p>
 
-<<<<<<< HEAD
-          {/* ---------------- TAB BUTTONS ---------------- */}
-=======
->>>>>>> 90c4f33d55caf13cfdac6bcfdd68e69aacb99eda
           <div className="tabs">
-            <button className={`tab-btn ${activeTab === "daily" ? "active" : ""}`}
-              onClick={() => setActiveTab("daily")}>Daily</button>
+            <button
+              className={`tab-btn ${activeTab === "daily" ? "active" : ""}`}
+              onClick={() => setActiveTab("daily")}
+            >
+              Daily
+            </button>
 
-            <button className={`tab-btn ${activeTab === "menu" ? "active" : ""}`}
-              onClick={() => setActiveTab("menu")}>Menu</button>
+            <button
+              className={`tab-btn ${activeTab === "menu" ? "active" : ""}`}
+              onClick={() => setActiveTab("menu")}
+            >
+              Menu
+            </button>
 
-            <button className={`tab-btn ${activeTab === "status" ? "active" : ""}`}
-              onClick={() => setActiveTab("status")}>
+            <button
+              className={`tab-btn ${activeTab === "status" ? "active" : ""}`}
+              onClick={() => setActiveTab("status")}
+            >
               Student Status
             </button>
 
-            <button className={`tab-btn ${activeTab === "ai" ? "active" : ""}`}
-              onClick={() => setActiveTab("ai")}>🧠 Teacher Performance</button>
+            <button
+              className={`tab-btn ${activeTab === "ai" ? "active" : ""}`}
+              onClick={() => setActiveTab("ai")}
+            >
+              🧠 Teacher Performance
+            </button>
           </div>
 
-<<<<<<< HEAD
-          {/* ---------------- TAB CONTENT ---------------- */}
-
-          {/* DAILY TAB */}
+          {/* DAILY */}
           {activeTab === "daily" && (
             <div className="tab-panel">
               <h3>📨 Daily Reports</h3>
@@ -1045,7 +874,7 @@ const Dashboard = () => {
             </div>
           )}
 
-          {/* MENU TAB */}
+          {/* MENU */}
           {activeTab === "menu" && (
             <div className="tab-panel">
               <h3>🍽️ Weekly Menu</h3>
@@ -1055,7 +884,7 @@ const Dashboard = () => {
             </div>
           )}
 
-          {/* STUDENT STATUS TAB */}
+          {/* STUDENT STATUS */}
           {activeTab === "status" && (
             <div className="tab-panel">
               <h3>📊 Student Status & Analytics</h3>
@@ -1064,83 +893,21 @@ const Dashboard = () => {
                 <button className="load-visual-btn" onClick={fetchStudentVisual}>
                   📊 Load Student Analytics
                 </button>
-                <button className="load-visual-btn" onClick={loadMockStudentData} style={{ background: "#6b7280" }}>
+
+                <button
+                  className="load-visual-btn"
+                  onClick={loadMockStudentData}
+                  style={{ background: "#6b7280" }}
+                >
                   🧪 Load Mock Data
-=======
-          <div className="dashboard-content">
-            {activeTab === "daily" && (
-              <div className="tab-panel">
-                <h3>📆 Daily Student Reports</h3>
-                <p>Send WhatsApp updates to parents.</p>
-                <button className="send-btn" onClick={sendDaily}>
-                  🚀 Send Daily Reports
                 </button>
-              </div>
-            )}
 
-            {activeTab === "menu" && (
-              <div className="tab-panel">
-                <h3>🍱 Weekly Menu</h3>
-                <p>Message all parents with the weekly food menu.</p>
-                <button className="send-btn" onClick={sendWeeklyMenu}>
-                  🍽 Send Weekly Menu
-                </button>
-              </div>
-            )}
-
-            {activeTab === "status" && (
-              <div className="tab-panel">
-                <h3>📊 Student Report Status</h3>
                 <button
-                  className="send-btn"
-                  style={{ background: "#8b5cf6" }}
+                  className="load-visual-btn"
                   onClick={fetchStudentStatus}
+                  style={{ background: "#10b981" }}
                 >
-                  📊 Check Status
-                </button>
-              </div>
-            )}
-
-            {activeTab === "ai" && (
-              <div className="tab-panel">
-                <h3>🧠 Teacher Performance</h3>
-                <p>Generate AI insights and visual analytics for each teacher.</p>
-
-                <button
-                  className="send-btn"
-                  style={{ background: "#ef4444" }}
-                  onClick={triggerN8n}
-                  disabled={isProcessingAI}
-                >
-                  {isProcessingAI ? "⏳ Processing..." : "🚀 Generate AI Report"}
-                </button>
-
-                {Array.isArray(visualData) && visualData.length > 0 && (
-                  <>
-                    {/* BIG visuals */}
-                    <div ref={radarChartRef} style={{ height: 560, marginTop: 30 }} />
-                    <div ref={barChartRef} style={{ height: 480, marginTop: 40 }} />
-                    <div ref={lineChartRef} style={{ height: 480, marginTop: 40 }} />
-                  </>
-                )}
-
-                {teacherReport?.output && (
-                  <div
-                    className="teacher-report-box"
-                    dangerouslySetInnerHTML={{
-                      __html: renderMarkdownAsHtml(teacherReport.output),
-                    }}
-                  />
-                )}
-              </div>
-            )}
-
-            <div className="logs-section">
-              <div className="logs-header">
-                <h3>Logs</h3>
-                <button className="clear-btn" onClick={clearLogs}>
-                  🧹 Clear Logs
->>>>>>> 90c4f33d55caf13cfdac6bcfdd68e69aacb99eda
+                  📄 Check Status (Text)
                 </button>
               </div>
 
@@ -1157,13 +924,17 @@ const Dashboard = () => {
                   </div>
 
                   {/* Student Data Table */}
-                  <div style={{
-                    background: "white",
-                    padding: "20px",
-                    borderRadius: "12px",
-                    marginTop: "10px",
-                    overflowX: "auto"
-                  }}>
+                  <div
+                    style={{
+                      gridColumn: "1 / -1",
+                      background: "white",
+                      padding: "20px",
+                      borderRadius: "12px",
+                      marginTop: "10px",
+                      overflowX: "auto",
+                      boxShadow: "0 4px 10px rgba(0,0,0,0.06)",
+                    }}
+                  >
                     <h4 style={{ marginBottom: "15px" }}>📋 Student Data Overview</h4>
                     <table style={{ width: "100%", borderCollapse: "collapse" }}>
                       <thead>
@@ -1180,51 +951,25 @@ const Dashboard = () => {
                         {studentVisual.map((student, index) => (
                           <tr key={index} style={{ borderBottom: "1px solid #e5e7eb" }}>
                             <td style={{ padding: "12px" }}>{student.name}</td>
+                            <td style={{ padding: "12px" }}>{Number(student.avgAppetite).toFixed(1)}</td>
+                            <td style={{ padding: "12px" }}>{Number(student.avgSleep).toFixed(1)}</td>
+                            <td style={{ padding: "12px" }}>{Number(student.avgBehaviour).toFixed(1)}</td>
+                            <td style={{ padding: "12px" }}>{Number(student.avgMood).toFixed(1)}</td>
                             <td style={{ padding: "12px" }}>
-                              <div style={{
-                                width: `${student.avgAppetite * 20}%`,
-                                height: "8px",
-                                background: student.avgAppetite > 3 ? "#10b981" : student.avgAppetite > 2 ? "#f59e0b" : "#ef4444",
-                                borderRadius: "4px"
-                              }} />
-                              {student.avgAppetite.toFixed(1)}
-                            </td>
-                            <td style={{ padding: "12px" }}>
-                              <div style={{
-                                width: `${student.avgSleep * 20}%`,
-                                height: "8px",
-                                background: student.avgSleep > 3 ? "#10b981" : student.avgSleep > 2 ? "#f59e0b" : "#ef4444",
-                                borderRadius: "4px"
-                              }} />
-                              {student.avgSleep.toFixed(1)}
-                            </td>
-                            <td style={{ padding: "12px" }}>
-                              <div style={{
-                                width: `${student.avgBehaviour * 20}%`,
-                                height: "8px",
-                                background: student.avgBehaviour > 3 ? "#10b981" : student.avgBehaviour > 2 ? "#f59e0b" : "#ef4444",
-                                borderRadius: "4px"
-                              }} />
-                              {student.avgBehaviour.toFixed(1)}
-                            </td>
-                            <td style={{ padding: "12px" }}>
-                              <div style={{
-                                width: `${student.avgMood * 20}%`,
-                                height: "8px",
-                                background: student.avgMood > 3 ? "#3fe08fff" : student.avgMood > 2 ? "#f59e0b" : "#ef4444",
-                                borderRadius: "4px"
-                              }} />
-                              {student.avgMood.toFixed(1)}
-                            </td>
-                            <td style={{ padding: "12px" }}>
-                              <span style={{
-                                padding: "4px 12px",
-                                borderRadius: "20px",
-                                color: "white",
-                                fontSize: "0.85rem",
-                                background: student.riskLevel === "High" ? "#ef4444" :
-                                  student.riskLevel === "Medium" ? "#f59e0b" : "#10b981"
-                              }}>
+                              <span
+                                style={{
+                                  padding: "4px 12px",
+                                  borderRadius: "20px",
+                                  color: "white",
+                                  fontSize: "0.85rem",
+                                  background:
+                                    student.riskLevel === "High"
+                                      ? "#ef4444"
+                                      : student.riskLevel === "Medium"
+                                      ? "#f59e0b"
+                                      : "#10b981",
+                                }}
+                              >
                                 {student.riskLevel}
                               </span>
                             </td>
@@ -1233,75 +978,71 @@ const Dashboard = () => {
                       </tbody>
                     </table>
                   </div>
-
-                  {/* Add button to fetch student status text */}
-                  <button className="send-btn" style={{ marginTop: 20 }}
-                    onClick={fetchStudentStatus}>
-                    RISK SUMMARY
-
-                    • Emma Johnson (LOW)
-                    Appetite 4.2 | Sleep 3.8 | Behaviour 4.5 | Mood 4.0
-                    Status: Healthy & stable
-
-                    • Noah Smith (HIGH)
-                    Appetite 2.8 | Sleep 3.0 | Behaviour 2.5 | Mood 2.2
-                    Status: Needs close monitoring
-
-                    • Olivia Davis (MEDIUM)
-                    Appetite 3.5 | Sleep 4.0 | Behaviour 3.8 | Mood 3.5
-                    Status: Mild fluctuations
-
-                    • Liam Wilson (LOW)
-                    Appetite 4.5 | Sleep 4.2 | Behaviour 4.8 | Mood 4.5
-                    Status: Excellent wellbeing
-
-                    • Sophia Brown (HIGH)
-                    Appetite 3.0 | Sleep 2.5 | Behaviour 3.2 | Mood 2.8
-                    Status: Needs emotional support
-
-                  </button>
                 </div>
               ) : (
                 <div className="no-data-message">
-                  <p>No student data loaded yet.</p>
-                  <p>Click "Load Student Analytics" to fetch data or "Load Mock Data" for testing.</p>
+                  <p><strong>No student data loaded yet.</strong></p>
+                  <p>Click “Load Student Analytics” or “Load Mock Data”.</p>
                 </div>
               )}
             </div>
-<<<<<<< HEAD
           )}
 
-          {/* AI TEACHER TAB */}
+          {/* TEACHER AI */}
           {activeTab === "ai" && (
             <div className="tab-panel">
-              <h3>🧠 AI Teacher Performance Analysis</h3>
-              <button className="send-btn" onClick={triggerN8n} disabled={isProcessingAI}>
-                {isProcessingAI ? "Processing..." : "🤖 Generate Teacher Report"}
+              <h3>🧠 Teacher Performance</h3>
+              <p>Generate AI insights and visual analytics for each teacher.</p>
+
+              <button
+                className="send-btn"
+                style={{ background: "#ef4444" }}
+                onClick={triggerN8n}
+                disabled={isProcessingAI}
+              >
+                {isProcessingAI ? "⏳ Processing..." : "🚀 Generate AI Report"}
               </button>
-              {/* Teacher charts and report display would go here */}
+
+              {Array.isArray(visualData) && visualData.length > 0 && (
+                <>
+                  <div ref={radarChartRef} style={{ height: 560, marginTop: 30 }} />
+                  <div ref={barChartRef} style={{ height: 480, marginTop: 40 }} />
+                  <div ref={lineChartRef} style={{ height: 480, marginTop: 40 }} />
+                </>
+              )}
+
+              {teacherReport?.output && (
+                <div
+                  className="teacher-report-box"
+                  dangerouslySetInnerHTML={{
+                    __html: renderMarkdownAsHtml(teacherReport.output),
+                  }}
+                />
+              )}
             </div>
           )}
 
-          {/* Logs Section */}
+          {/* LOGS */}
           <div className="logs-section">
             <div className="logs-header">
               <h3>Logs</h3>
-              <button className="clear-btn" onClick={clearLogs}>🧹 Clear Logs</button>
+              <button className="clear-btn" onClick={clearLogs}>
+                🧹 Clear Logs
+              </button>
             </div>
 
             {logs.length === 0 ? (
-              <p style={{ color: "#666", fontStyle: "italic" }}>No logs yet.</p>
+              <p style={{ color: "#94a3b8", fontStyle: "italic" }}>No logs yet.</p>
             ) : (
               <ul className="logs-list">
                 {logs.map((log, i) => (
-                  <li key={i} className={`log-item ${log.type}`}>{log.text}</li>
+                  <li key={i} className={`log-item ${log.type || "info"}`}>
+                    {log.text}
+                  </li>
                 ))}
               </ul>
             )}
-=======
->>>>>>> 90c4f33d55caf13cfdac6bcfdd68e69aacb99eda
           </div>
-
         </div>
       </div>
     </>
