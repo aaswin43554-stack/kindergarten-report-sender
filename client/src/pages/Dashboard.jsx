@@ -171,10 +171,16 @@ const InlineStyles = () => (
     `}
   </style>
 
-  .log-item {
-    padding: 4px 0;
-    font-size: 0.95rem;
-  }
+  <style>
+  {`
+    .log-item {
+      padding: 4px 0;
+      font-size: 0.95rem;
+    }
+  `}
+</style>
+
+
 
   .log-item.green { color: #16a34a; }
   .log-item.yellow { color: #d97706; }
