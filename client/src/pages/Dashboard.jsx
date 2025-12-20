@@ -55,13 +55,6 @@ const InlineStyles = () => (
         transform: translateY(-2px);
       }
 
-<<<<<<< HEAD
-      .tab-btn.active {
-        background: #3b82f6;
-        color: white;
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-      }
-=======
   .tabs {
     display: flex;
     justify-content: center;
@@ -69,7 +62,6 @@ const InlineStyles = () => (
     margin-bottom: 25px;
     flex-wrap: wrap;
   }
->>>>>>> 90c4f33d55caf13cfdac6bcfdd68e69aacb99eda
 
       /* Tab Panel */
       .tab-panel {
