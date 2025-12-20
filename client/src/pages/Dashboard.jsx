@@ -213,11 +213,13 @@ const InlineStyles = () => (
       }
 
       .log-item {
-        padding: 0.5rem;
-        border-bottom: 1px solid rgba(255,255,255,0.06);
-        line-height: 1.35;
-        white-space: pre-wrap;
-      }
+  padding: 0.5rem;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+
+  white-space: pre-wrap;   /* ✅ shows ordered lines */
+  word-break: break-word;  /* ✅ avoids overflow */
+}
+
 
       .log-item.green { color: #4ade80; }
       .log-item.yellow { color: #fbbf24; }
@@ -450,15 +452,16 @@ const Dashboard = ({ onLogout }) => {
   // STUDENT STATUS (TEXT / ORDERED message from backend)
   // ---------------------------------------------------------------------------
   const fetchStudentStatus = async () => {
-    appendLog("📊 Fetching student status...", "info");
-    try {
-      const res = await fetch("/student-status");
-      const json = await res.json();
-      appendLog(json.message || "⚠️ No status returned.", "info");
-    } catch {
-      appendLog("❌ Error fetching student status.", "error");
-    }
-  };
+  appendLog("📊 Fetching student status...", "info");
+  try {
+    const res = await fetch("/student-status");
+    const json = await res.json();
+    appendLog(json.message || "⚠️ No status returned.", "info");
+  } catch {
+    appendLog("❌ Error fetching student status.", "error");
+  }
+};
+
 
   // ---------------------------------------------------------------------------
   // FETCH STUDENT VISUAL ANALYTICS DATA
@@ -724,7 +727,7 @@ const Dashboard = ({ onLogout }) => {
     ];
 
     chart.setOption({
-      title: { text: "Student Wellbeing Radar", left: "center", textStyle: { fontSize: 18, fontWeight: "bold" } },
+      title: { show: false },
       legend: { bottom: 10, type: "scroll", data: names, textStyle: { fontSize: 12 } },
       tooltip: {
         trigger: "item",
