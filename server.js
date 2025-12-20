@@ -125,86 +125,126 @@ app.get("/student-status", async (req, res) => {
       raw?.data ||
       JSON.stringify(raw);
 
-    const text = String(analysisText || "").replace(/\r\n/g, "\n").trim();
+    const text = String(analysisText || "")
+  .replace(/\r\n/g, "\n")
+  .trim();
 
-    const blocks = text.split(/(?=\d+\.\s)/g).filter(Boolean);
-    const studentBlocks = blocks.length ? blocks : [text];
+// ✅ Better splitting: split by numbered blocks on NEW LINES too
+const studentBlocks = text
+  .split(/\n(?=\s*\d+\.\s+)/g)
+  .map((s) => s.trim())
+  .filter(Boolean);
 
-    const splitBullets = (s) =>
-      String(s || "")
-        .replace(/\s+/g, " ")
-        .split(
-          /(?:\s*[•\-]\s+|\s*\d+\.\s+|\s*\d+\)\s+|;\s+|,\s+|\.\s+(?=[A-Z]))/
-        )
-        .map((x) => x.trim())
-        .filter((x) => x && x.length > 2)
-        .slice(0, 8);
+// ✅ Extract bullets better (handles •, -, 1), 1., newlines)
+const splitBullets = (s) =>
+  String(s || "")
+    .replace(/\r\n/g, "\n")
+    .split(/\n|•|- |\u2022/g)
+    .map((x) => x.trim())
+    .filter((x) => x && x.length > 2)
+    .slice(0, 10);
 
-    let students = studentBlocks.map((block, idx) => {
-      const b = block.trim();
+// ✅ Accept MANY header formats
+// Examples handled:
+// "1. Kamesh S - HIGH RISK"
+// "1. Kamesh S — HIGH"
+// "1. Kamesh S - High Risk"
+// "1. Kamesh S - MEDIUM"
+// "1. Kamesh S - LOW"
+const parseHeader = (block) => {
+  const headerMatch = block.match(
+    /^\s*\d+\.\s*([^\n—-]+?)\s*(?:—|-)\s*(HIGH|MEDIUM|LOW)\s*(?:RISK)?/im
+  );
+  if (!headerMatch) return null;
 
-      const head = b.match(
-        /(?:\d+\.\s*)?(.+?)\s*-\s*(HIGH|MEDIUM|LOW)\s*RISK/i
-      );
-      const name = (head?.[1] || `Student ${idx + 1}`).trim();
-      const risk_level = normalizeRisk(head?.[2] || "UNKNOWN");
+  return {
+    name: headerMatch[1].trim(),
+    risk_level: normalizeRisk(headerMatch[2]),
+  };
+};
 
-      const reasonsMatch = b.match(
-        /Reasons?\s*[:\-]\s*(.*?)(?=\s*(Recommendations?|General Notes|Notes|$))/is
-      );
-      const recMatch = b.match(
-        /Recommendations?\s*[:\-]\s*(.*?)(?=\s*(General Notes|Notes|$))/is
-      );
+// ✅ Extract Reasons + Recommendations (supports ":" or "-" and multiline)
+const parseSection = (block, label) => {
+  const re = new RegExp(
+    `${label}\\s*[:\\-]\\s*([\\s\\S]*?)(?=\\n\\s*(Reasons|Recommendations|Observations|Notes|General Notes)\\s*[:\\-]|$)`,
+    "i"
+  );
+  const m = block.match(re);
+  return m?.[1]?.trim() || "";
+};
 
-      const reasons = splitBullets(reasonsMatch?.[1] || "");
-      const recommendations = splitBullets(recMatch?.[1] || "");
+let students = studentBlocks
+  .map((block, idx) => {
+    const head = parseHeader(block);
+    if (!head) return null; // ✅ IMPORTANT: don't create fake students
 
-      const risk_score =
-        risk_level === "HIGH"
-          ? 80
-          : risk_level === "MEDIUM"
-          ? 55
-          : risk_level === "LOW"
-          ? 25
-          : 0;
+    const reasonsRaw =
+      parseSection(block, "Reasons?") ||
+      parseSection(block, "Challenges?") ||
+      parseSection(block, "Concerns?");
 
-      return {
-        id: String(idx),
-        name,
-        risk_level,
-        risk_score,
-        reasons,
-        recommendations,
-      };
-    });
+    const recRaw =
+      parseSection(block, "Recommendations?") ||
+      parseSection(block, "Guidance") ||
+      parseSection(block, "Next Steps?");
 
-    students = students.filter((s) => s.name && s.name.length > 1);
+    const reasons = splitBullets(reasonsRaw);
+    const recommendations = splitBullets(recRaw);
 
-    students.sort((a, b) => {
-      const ao = riskOrder[a.risk_level] ?? 9;
-      const bo = riskOrder[b.risk_level] ?? 9;
-      if (ao !== bo) return ao - bo;
-      return (b.risk_score ?? 0) - (a.risk_score ?? 0);
-    });
+    const risk_score =
+      head.risk_level === "HIGH"
+        ? 80
+        : head.risk_level === "MEDIUM"
+        ? 55
+        : head.risk_level === "LOW"
+        ? 25
+        : 0;
 
-    const message = [
-      "📌 Student Risk Report (Ordered)",
-      "",
-      ...students.map((s, i) => {
-        const reasonsText = s.reasons.length ? s.reasons.join(", ") : "N/A";
-        const recText = s.recommendations.length
-          ? s.recommendations.join(", ")
-          : "N/A";
-        return `${i + 1}. ${s.name} — ${s.risk_level} (Score: ${s.risk_score})\n   Reasons: ${reasonsText}\n   Recommendations: ${recText}`;
-      }),
-    ].join("\n");
+    return {
+      id: String(idx),
+      name: head.name,
+      risk_level: head.risk_level,
+      risk_score,
+      reasons,
+      recommendations,
+    };
+  })
+  .filter(Boolean);
 
-    return res.json({
-      summary: "Student risk assessment generated.",
-      message,
-      students,
-      rawText,
-    });
+// ✅ If nothing parsed, return raw text so you can SEE what webhook sent
+if (!students.length) {
+  return res.json({
+    summary: "No students parsed from webhook text.",
+    message: "⚠️ Parser could not detect student blocks. Check rawText.",
+    students: [],
+    rawText, // ✅ this helps debug on frontend
+  });
+}
+
+students.sort((a, b) => {
+  const ao = riskOrder[a.risk_level] ?? 9;
+  const bo = riskOrder[b.risk_level] ?? 9;
+  if (ao !== bo) return ao - bo;
+  return (b.risk_score ?? 0) - (a.risk_score ?? 0);
+});
+
+const message = [
+  "📌 Student Risk Report (Ordered)",
+  "",
+  ...students.map((s, i) => {
+    const reasonsText = s.reasons.length ? s.reasons.join(", ") : "N/A";
+    const recText = s.recommendations.length ? s.recommendations.join(", ") : "N/A";
+    return `${i + 1}. ${s.name} — ${s.risk_level} (Score: ${s.risk_score})\n   Reasons: ${reasonsText}\n   Recommendations: ${recText}`;
+  }),
+].join("\n");
+
+return res.json({
+  summary: "Student risk assessment generated.",
+  message,
+  students,
+  rawText,
+});
+
   } catch (err) {
     console.error("❌ Student status error:", err);
     return res.status(500).json({
