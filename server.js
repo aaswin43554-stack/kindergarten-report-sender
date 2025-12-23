@@ -200,9 +200,11 @@ let students = studentBlocks
 
     // ✅ Stronger header detection (supports "-", "—", "HIGH", "HIGH RISK")
     const headerMatch =
-      b.match(/^\s*\d+\.\s*([^\n—-]+?)\s*(?:—|-)\s*(HIGH|MEDIUM|LOW)(?:\s*RISK)?/i) ||
-      b.match(/Name\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/i) ||
-      b.match(/Student\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/i);
+  b.match(/^\s*\d+[.)]\s*([^\n—-]+?)\s*(?:—|-)\s*(HIGH|MEDIUM|LOW)/i) ||   // 1) Name - HIGH
+  b.match(/^\s*\d+\.\s*([^\n—-]+?)\s*(?:—|-)\s*(HIGH|MEDIUM|LOW)(?:\s*RISK)?/i) || // 1. Name - HIGH RISK
+  b.match(/^\s*([^\n—-]+?)\s*(?:—|-)\s*(HIGH|MEDIUM|LOW)(?:\s*RISK)?/i) || // Name - HIGH
+  b.match(/Name\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/i) || // Name: X ... Risk: HIGH
+  b.match(/Student\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/i);  // Student: X ... Risk: HIGH
 
     // ✅ If no header → DO NOT create "Student 1"
     if (!headerMatch) return null;
@@ -437,20 +439,20 @@ app.get("/student-status-full", async (req, res) => {
 let studentBlocks = [];
 
 if (/\n\s*\d+\.\s+/.test(text)) {
-  studentBlocks = text.split(/\n(?=\s*\d+\.\s+)/g);
+  studentBlocks = text.split(/\n(?=\s*\d+\.\s+)/g);      // 1. Name
+} else if (/\n\s*\d+\)\s+/.test(text)) {
+  studentBlocks = text.split(/\n(?=\s*\d+\)\s+)/g);      // 1) Name
 } else if (/Student\s*:/i.test(text)) {
-  studentBlocks = text.split(/(?=Student\s*:)/gi);
+  studentBlocks = text.split(/(?=Student\s*:)/gi);       // Student:
 } else if (/Name\s*:/i.test(text)) {
-  studentBlocks = text.split(/(?=Name\s*:)/gi);
+  studentBlocks = text.split(/(?=Name\s*:)/gi);          // Name:
 } else if (/\n\s*\n/.test(text)) {
-  studentBlocks = text.split(/\n\s*\n+/g);
+  studentBlocks = text.split(/\n\s*\n+/g);               // blank lines
 } else {
-  // last fallback: treat whole thing as one block
-  studentBlocks = [text];
+  studentBlocks = [text];                                // fallback
 }
 
 studentBlocks = studentBlocks.map((s) => s.trim()).filter(Boolean);
-
 
       const splitBullets = (s) =>
   String(s || "")

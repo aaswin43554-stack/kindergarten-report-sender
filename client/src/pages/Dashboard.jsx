@@ -453,34 +453,33 @@ const Dashboard = ({ onLogout }) => {
   // ---------------------------------------------------------------------------
   const fetchStudentStatus = async () => {
   appendLog("📊 Fetching student status...", "info");
-
   try {
     const res = await fetch("/student-status");
     const json = await res.json();
 
-    // ✅ If backend returned parsed students, show them properly
+    // ✅ show rawText if parser failed
+    if ((!json.students || json.students.length === 0) && json.rawText) {
+      appendLog("⚠️ RAW TEXT FROM BACKEND (copy this):", "warning");
+      String(json.rawText).split("\n").slice(0, 200).forEach((l) => appendLog(l, "info"));
+      return;
+    }
+
+    // normal display
     if (Array.isArray(json.students) && json.students.length > 0) {
       json.students.forEach((s, idx) => {
-        const reasons = (s.reasons && s.reasons.length) ? s.reasons.join(", ") : "N/A";
-        const recs = (s.recommendations && s.recommendations.length) ? s.recommendations.join(", ") : "N/A";
-
         appendLog(
-          `${idx + 1}. ${s.name} — ${s.risk_level} (Score: ${s.risk_score})\nReasons: ${reasons}\nRecommendations: ${recs}\n`,
+          `${idx + 1}. ${s.name} — ${s.risk_level} (Score: ${s.risk_score})\nReasons: ${(s.reasons||[]).join(", ") || "N/A"}\nRecommendations: ${(s.recommendations||[]).join(", ") || "N/A"}`,
           "info"
         );
       });
       return;
     }
 
-    // ✅ Fallback: print message line-by-line
-    const msg = String(json.message || "⚠️ No status returned.");
-    msg.split("\n").forEach((line) => appendLog(line, "info"));
+    appendLog(json.message || "⚠️ No status returned.", "warning");
   } catch (err) {
     appendLog(`❌ Error fetching student status: ${err.message}`, "error");
   }
 };
-
-
   // ---------------------------------------------------------------------------
   // FETCH STUDENT VISUAL ANALYTICS DATA
   // ---------------------------------------------------------------------------
