@@ -309,62 +309,55 @@ app.get("/api/student-visual", async (req, res) => {
 
     console.log("🎒 Fetching student visual data...", webhook);
 
-    const response = await fetch(webhook);
+    const response = await fetch(webhook, {
+      method: "GET",
+      headers: {
+        "Accept": "application/json",
+      },
+    });
 
-    // ✅ If n8n fails, show body preview for debugging
+    const contentType = response.headers.get("content-type") || "";
+    const bodyText = await response.text().catch(() => "");
+
+    console.log("✅ n8n status:", response.status);
+    console.log("✅ n8n content-type:", contentType);
+    console.log("✅ n8n body preview:", bodyText.slice(0, 300));
+
     if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      console.error("❌ N8N student visual non-200:", response.status, body.slice(0, 300));
       return res.status(500).json({
         error: `N8N responded with ${response.status}`,
-        rawPreview: body.slice(0, 300),
+        contentType,
+        rawPreview: bodyText.slice(0, 300),
         students: [],
       });
     }
 
-    const text = await response.text();
-
-    // ✅ Parse JSON safely
     let raw;
     try {
-      raw = JSON.parse(text);
-    } catch (e) {
-      console.error("❌ Student visual webhook returned non-JSON:", text.slice(0, 300));
+      raw = JSON.parse(bodyText);
+    } catch {
       return res.status(500).json({
         error: "Student visual webhook returned non-JSON",
-        rawPreview: text.slice(0, 300),
+        contentType,
+        rawPreview: bodyText.slice(0, 300),
         students: [],
       });
     }
 
-    // ✅ Unwrap common n8n formats
+    // unwrap common formats
     let data = raw;
-
-    // case: [{...}] or [ { students: [...] } ]
     if (Array.isArray(data) && data.length === 1) data = data[0];
-
-    // case: { output: "...." } where output is a JSON string
     if (data?.output && typeof data.output === "string") {
-      try {
-        data = JSON.parse(data.output);
-      } catch {
-        // keep data as-is if output isn't JSON
-      }
+      try { data = JSON.parse(data.output); } catch {}
     }
-
-    // case: { data: { students: [...] } }
     if (data?.data?.students) data = data.data;
+    if (Array.isArray(data) && data[0]?.students) data = data[0];
 
-    // case: array where first item contains students
-    if (Array.isArray(data) && data.length && data[0]?.students) data = data[0];
-
-    // ✅ Extract students from many shapes
     const students =
       (Array.isArray(data?.students) && data.students) ||
-      (Array.isArray(data) && data) || // sometimes it's directly an array of students
+      (Array.isArray(data) && data) ||
       [];
 
-    // ✅ Normalize risk for frontend charts (expects High/Medium/Low)
     const normalizeRiskLabel = (v) => {
       const up = String(v || "").toLowerCase();
       if (up.includes("high")) return "High";
@@ -383,14 +376,9 @@ app.get("/api/student-visual", async (req, res) => {
       riskLevel: normalizeRiskLabel(s.riskLevel ?? s.risk_level ?? s.risk ?? "Low"),
     }));
 
-    console.log("✅ Student visuals count:", normalized.length);
-
     return res.json({
       students: normalized,
-      meta: {
-        source: "n8n",
-        receivedType: Array.isArray(raw) ? "array" : typeof raw,
-      },
+      meta: { status: response.status, contentType },
     });
   } catch (err) {
     console.error("❌ Student visual error:", err);
@@ -400,6 +388,7 @@ app.get("/api/student-visual", async (req, res) => {
     });
   }
 });
+
 
 
 // =======================================================
