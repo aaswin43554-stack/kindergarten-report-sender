@@ -456,8 +456,18 @@ const Dashboard = ({ onLogout }) => {
   try {
     const res = await fetch("/student-status");
     const json = await res.json();
-    appendLog(json.message || "⚠️ No status returned.", "info");
-  } catch {
+    
+    if (json.students && json.students.length > 0) {
+      // This builds a nice readable string for the logs including reasons
+      const logMessage = json.students.map((s, i) => {
+        return `${i + 1}. ${s.name} (${s.risk_level})\n   • Reasons: ${s.reasons.join(", ")}\n   • Recs: ${s.recommendations.join(", ")}`;
+      }).join("\n\n");
+      
+      appendLog(logMessage, "info");
+    } else {
+      appendLog(json.message || "⚠️ No status returned.", "warning");
+    }
+  } catch (err) {
     appendLog("❌ Error fetching student status.", "error");
   }
 };

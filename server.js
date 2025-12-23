@@ -192,27 +192,28 @@ const parseSection = (block, label) => {
   return m?.[1]?.trim() || "";
 };
 
+// ✅ IMPROVED PARSER FOR REASONS AND RECOMMENDATIONS
 let students = studentBlocks
   .map((block, idx) => {
-    const b = String(block || "").trim();   // ✅ define b here FIRST
+    const b = String(block || "").trim();
     if (!b) return null;
 
-    // ----- header parsing -----
-    const head = b.match(/(?:\d+\.\s*)?(.+?)\s*-\s*(HIGH|MEDIUM|LOW)\s*RISK/i);
+    // 1. Improved Header Match (Matches "Name - RISK" or "Name — RISK")
+    const head = b.match(/(?:\d+\.\s*)?(.+?)\s*(?:-|—)\s*(HIGH|MEDIUM|LOW)/i);
     const name = (head?.[1] || `Student ${idx + 1}`).trim();
     const risk_level = normalizeRisk(head?.[2] || "UNKNOWN");
 
-    // ----- reasons & recs -----
-    const reasonsMatch = b.match(
-      /(Reasons?|Concerns?|Challenges?)\s*[:\-]\s*([\s\S]*?)(?=\n\s*(Recommendations?|Guidance|Next Steps?|Notes?|$))/i
-    );
-    const recMatch = b.match(
-      /(Recommendations?|Guidance|Next Steps?)\s*[:\-]\s*([\s\S]*?)(?=\n\s*(Notes?|General Notes|$))/i
-    );
+    // 2. Improved Reasons Extraction
+    // Looks for "Reasons:" and stops at "Recommendations:" or the end of the block
+    const reasonsMatch = b.match(/Reasons?\s*[:\-]\s*([\s\S]*?)(?=Recommendations?|Guidance|Next Steps?|$)/i);
+    
+    // 3. Improved Recommendations Extraction
+    const recMatch = b.match(/Recommendations?\s*[:\-]\s*([\s\S]*?)(?=Notes?|General Notes?|$)/i);
 
-    const reasonsRaw = reasonsMatch?.[2] || "";
-    const recRaw = recMatch?.[2] || "";
+    const reasonsRaw = reasonsMatch?.[1] || "";
+    const recRaw = recMatch?.[1] || "";
 
+    // 4. Use your existing splitBullets helper but ensure it cleans up better
     const reasons = splitBullets(reasonsRaw);
     const recommendations = splitBullets(recRaw);
 
@@ -221,7 +222,14 @@ let students = studentBlocks
       risk_level === "MEDIUM" ? 55 :
       risk_level === "LOW" ? 25 : 0;
 
-    return { id: String(idx), name, risk_level, risk_score, reasons, recommendations };
+    return { 
+      id: String(idx), 
+      name, 
+      risk_level, 
+      risk_score, 
+      reasons: reasons.length > 0 ? reasons : ["N/A"], 
+      recommendations: recommendations.length > 0 ? recommendations : ["N/A"] 
+    };
   })
   .filter(Boolean);
 
