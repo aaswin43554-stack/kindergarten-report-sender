@@ -220,9 +220,7 @@ const reasonsRaw = getSection(b, ["Reasons?", "Concerns?", "Challenges?"]);
 const recRaw = getSection(b, ["Recommendations?", "Guidance", "Next Steps?"]);
 
 
-    const reasonsRaw = reasonsMatch?.[1] || "";
-    const recRaw = recMatch?.[1] || "";
-
+  
     // 4. Use your existing splitBullets helper but ensure it cleans up better
     const reasons = splitBullets(reasonsRaw);
     const recommendations = splitBullets(recRaw);
