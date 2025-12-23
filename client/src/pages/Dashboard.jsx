@@ -459,10 +459,11 @@ const Dashboard = ({ onLogout }) => {
 
     // ✅ show rawText if parser failed
     if ((!json.students || json.students.length === 0) && json.rawText) {
-      appendLog("⚠️ RAW TEXT FROM BACKEND (copy this):", "warning");
-      String(json.rawText).split("\n").slice(0, 200).forEach((l) => appendLog(l, "info"));
-      return;
-    }
+  appendLog("⚠️ RAW TEXT (copy/paste this):", "warning");
+  String(json.rawText).split("\n").slice(0, 200).forEach(line => appendLog(line, "info"));
+  return;
+}
+
 
     // normal display
     if (Array.isArray(json.students) && json.students.length > 0) {
@@ -484,25 +485,30 @@ const Dashboard = ({ onLogout }) => {
   // FETCH STUDENT VISUAL ANALYTICS DATA
   // ---------------------------------------------------------------------------
   const fetchStudentVisual = async () => {
-    appendLog("🎒 Loading student visual analytics...", "info");
+  appendLog("🎒 Loading student visual analytics...", "info");
 
-    try {
-      const response = await fetch("/api/student-visual");
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  try {
+    const response = await fetch("/api/student-visual");
 
-      const json = await response.json();
-
-      if (!json.students || !Array.isArray(json.students)) {
-        appendLog("❌ Invalid data format from server.", "error");
-        return;
-      }
-
-      setStudentVisual(json.students);
-      appendLog(`✅ Loaded data for ${json.students.length} students.`, "success");
-    } catch (err) {
-      appendLog(`❌ Student visuals fetch failed: ${err.message}`, "error");
+    if (!response.ok) {
+      const errText = await response.text(); // ✅ see real backend error
+      throw new Error(`HTTP ${response.status} - ${errText}`);
     }
-  };
+
+    const json = await response.json();
+
+    if (!json.students || !Array.isArray(json.students)) {
+      appendLog("❌ Invalid data format from server.", "error");
+      return;
+    }
+
+    setStudentVisual(json.students);
+    appendLog(`✅ Loaded data for ${json.students.length} students.`, "success");
+  } catch (err) {
+    appendLog(`❌ Student visuals fetch failed: ${err.message}`, "error");
+  }
+};
+
 
   // ---------------------------------------------------------------------------
   // MOCK STUDENT DATA FOR TESTING

@@ -299,7 +299,7 @@ return res.json({
 });
 
 // =======================================================
-// STUDENT VISUAL ANALYTICS (VISUAL webhook ONLY)
+// STUDENT VISUAL ANALYTICS (VISUAL webhook ONLY) - ROBUST
 // =======================================================
 app.get("/api/student-visual", async (req, res) => {
   try {
@@ -310,51 +310,97 @@ app.get("/api/student-visual", async (req, res) => {
     console.log("🎒 Fetching student visual data...", webhook);
 
     const response = await fetch(webhook);
-    if (!response.ok) throw new Error(`N8N responded with ${response.status}`);
+
+    // ✅ If n8n fails, show body preview for debugging
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      console.error("❌ N8N student visual non-200:", response.status, body.slice(0, 300));
+      return res.status(500).json({
+        error: `N8N responded with ${response.status}`,
+        rawPreview: body.slice(0, 300),
+        students: [],
+      });
+    }
 
     const text = await response.text();
 
+    // ✅ Parse JSON safely
     let raw;
     try {
       raw = JSON.parse(text);
     } catch (e) {
-      throw new Error("Student visual webhook returned non-JSON text");
+      console.error("❌ Student visual webhook returned non-JSON:", text.slice(0, 300));
+      return res.status(500).json({
+        error: "Student visual webhook returned non-JSON",
+        rawPreview: text.slice(0, 300),
+        students: [],
+      });
     }
 
+    // ✅ Unwrap common n8n formats
     let data = raw;
 
+    // case: [{...}] or [ { students: [...] } ]
     if (Array.isArray(data) && data.length === 1) data = data[0];
 
+    // case: { output: "...." } where output is a JSON string
     if (data?.output && typeof data.output === "string") {
       try {
         data = JSON.parse(data.output);
       } catch {
-        // keep as-is
+        // keep data as-is if output isn't JSON
       }
     }
 
-    if (Array.isArray(data) && data[0]?.students) data = data[0];
+    // case: { data: { students: [...] } }
+    if (data?.data?.students) data = data.data;
 
-    const students = Array.isArray(data?.students) ? data.students : [];
+    // case: array where first item contains students
+    if (Array.isArray(data) && data.length && data[0]?.students) data = data[0];
 
-    const normalized = students.map((s) => ({
-      ...s,
-      name: s.name || s.studentName || "Unknown",
-      avgAppetite: Number(s.avgAppetite) || 0,
-      avgSleep: Number(s.avgSleep) || 0,
-      avgBehaviour: Number(s.avgBehaviour) || 0,
-      avgMood: Number(s.avgMood) || 0,
-      riskLevel: s.riskLevel || s.risk_level || "Low",
+    // ✅ Extract students from many shapes
+    const students =
+      (Array.isArray(data?.students) && data.students) ||
+      (Array.isArray(data) && data) || // sometimes it's directly an array of students
+      [];
+
+    // ✅ Normalize risk for frontend charts (expects High/Medium/Low)
+    const normalizeRiskLabel = (v) => {
+      const up = String(v || "").toLowerCase();
+      if (up.includes("high")) return "High";
+      if (up.includes("med")) return "Medium";
+      if (up.includes("low")) return "Low";
+      return "Low";
+    };
+
+    const normalized = students.map((s, idx) => ({
+      id: s.id ?? String(idx),
+      name: s.name || s.studentName || s.student_name || "Unknown",
+      avgAppetite: Number(s.avgAppetite ?? s.appetite ?? s.avg_appetite) || 0,
+      avgSleep: Number(s.avgSleep ?? s.sleep ?? s.avg_sleep) || 0,
+      avgBehaviour: Number(s.avgBehaviour ?? s.behaviour ?? s.avg_behaviour) || 0,
+      avgMood: Number(s.avgMood ?? s.mood ?? s.avg_mood) || 0,
+      riskLevel: normalizeRiskLabel(s.riskLevel ?? s.risk_level ?? s.risk ?? "Low"),
     }));
 
     console.log("✅ Student visuals count:", normalized.length);
 
-    return res.json({ students: normalized });
+    return res.json({
+      students: normalized,
+      meta: {
+        source: "n8n",
+        receivedType: Array.isArray(raw) ? "array" : typeof raw,
+      },
+    });
   } catch (err) {
-    console.error("❌ Student visual error:", err.message);
-    return res.status(500).json({ error: err.message, students: [] });
+    console.error("❌ Student visual error:", err);
+    return res.status(500).json({
+      error: err.message || "Unknown server error",
+      students: [],
+    });
   }
 });
+
 
 // =======================================================
 // ✅ PRESERVED: your 2nd student visual route (renamed to avoid override)
