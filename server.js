@@ -198,30 +198,42 @@ let students = studentBlocks
     const b = String(block || "").trim();
     if (!b) return null;
 
-    // 1. Improved Header Match (Matches "Name - RISK" or "Name — RISK")
-    const head = b.match(/(?:\d+\.\s*)?(.+?)\s*(?:-|—)\s*(HIGH|MEDIUM|LOW)/i);
-    const name = (head?.[1] || `Student ${idx + 1}`).trim();
-    const risk_level = normalizeRisk(head?.[2] || "UNKNOWN");
+    // ✅ Stronger header detection (supports "-", "—", "HIGH", "HIGH RISK")
+    const headerMatch =
+      b.match(/^\s*\d+\.\s*([^\n—-]+?)\s*(?:—|-)\s*(HIGH|MEDIUM|LOW)(?:\s*RISK)?/i) ||
+      b.match(/Name\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/i) ||
+      b.match(/Student\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/i);
 
-    // 2. Improved Reasons Extraction
-   const getSection = (block, labels) => {
-  // capture text after label until next known label or end
-  const labelGroup = labels.join("|");
-  const stopGroup = "(Reasons?|Concerns?|Challenges?|Recommendations?|Guidance|Next Steps?|Notes?|General Notes)";
-  const re = new RegExp(
-    `(?:^|\\n)\\s*(${labelGroup})\\s*[:\\-—]\\s*([\\s\\S]*?)(?=(?:\\n\\s*${stopGroup}\\s*[:\\-—])|$)`,
-    "i"
-  );
-  const m = block.match(re);
-  return (m?.[2] || "").trim();
-};
+    // ✅ If no header → DO NOT create "Student 1"
+    if (!headerMatch) return null;
 
-const reasonsRaw = getSection(b, ["Reasons?", "Concerns?", "Challenges?"]);
-const recRaw = getSection(b, ["Recommendations?", "Guidance", "Next Steps?"]);
+    const name = headerMatch[1].trim();
+    const risk_level = normalizeRisk(headerMatch[2]);
 
+    // ✅ Extract sections (Reasons/Recommendations) robustly
+    const getSection = (text, labels) => {
+      const labelGroup = labels.join("|");
+      const stopGroup =
+        "(Reasons?|Concerns?|Challenges?|Recommendations?|Guidance|Next Steps?|Notes?|General Notes)";
+      const re = new RegExp(
+        `(?:^|\\n)\\s*(${labelGroup})\\s*[:\\-—]\\s*([\\s\\S]*?)(?=(?:\\n\\s*${stopGroup}\\s*[:\\-—])|$)`,
+        "i"
+      );
+      const m = text.match(re);
+      return (m?.[2] || "").trim();
+    };
 
-  
-    // 4. Use your existing splitBullets helper but ensure it cleans up better
+    const splitBullets = (s) =>
+      String(s || "")
+        .replace(/\r\n/g, "\n")
+        .split(/\n|•|\u2022|-\s+|\*\s+/g)
+        .map((x) => x.trim())
+        .filter((x) => x && x.length > 2)
+        .slice(0, 10);
+
+    const reasonsRaw = getSection(b, ["Reasons?", "Concerns?", "Challenges?", "Specific Concerns?"]);
+    const recRaw = getSection(b, ["Recommendations?", "Guidance", "Next Steps?"]);
+
     const reasons = splitBullets(reasonsRaw);
     const recommendations = splitBullets(recRaw);
 
@@ -230,17 +242,16 @@ const recRaw = getSection(b, ["Recommendations?", "Guidance", "Next Steps?"]);
       risk_level === "MEDIUM" ? 55 :
       risk_level === "LOW" ? 25 : 0;
 
-    return { 
-      id: String(idx), 
-      name, 
-      risk_level, 
-      risk_score, 
-      reasons: reasons.length > 0 ? reasons : ["N/A"], 
-      recommendations: recommendations.length > 0 ? recommendations : ["N/A"] 
+    return {
+      id: String(idx),
+      name,
+      risk_level,
+      risk_score,
+      reasons,
+      recommendations
     };
   })
   .filter(Boolean);
-
 
 // ✅ If nothing parsed, return raw text so you can SEE what webhook sent
 if (!students.length) {
@@ -248,10 +259,9 @@ if (!students.length) {
     summary: "No students parsed from webhook text.",
     message: "⚠️ Parser could not detect student blocks. Check rawText.",
     students: [],
-    rawText, // ✅ this helps debug on frontend
+    rawText,
   });
 }
-
 students.sort((a, b) => {
   const ao = riskOrder[a.risk_level] ?? 9;
   const bo = riskOrder[b.risk_level] ?? 9;
