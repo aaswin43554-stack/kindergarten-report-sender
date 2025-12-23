@@ -1,7 +1,4 @@
 // client/src/pages/Dashboard.jsx
-// (Your dashboard is already OK. I’m giving it back “correct full code”)
-// ✅ I did NOT remove any functions. I only kept the robust logging you added.
-
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar.jsx";
@@ -10,52 +7,272 @@ import * as echarts from "echarts";
 const InlineStyles = () => (
   <style>
     {`
-      .dashboard-page { padding-top: 20px; min-height: 100vh; }
-      .dashboard-container { width: 100%; display: flex; flex-direction: column; align-items: center; padding: 0 16px 40px; box-sizing: border-box; }
-      .dashboard-title { font-size: 2.5rem; font-weight: 800; margin-bottom: 0.5rem; background: linear-gradient(135deg, #1e293b 0%, #334155 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
-      .dashboard-subtitle { color: #64748b; font-size: 1.1rem; margin-bottom: 2rem; text-align: center; max-width: 900px; }
+      /* Dashboard specific styles */
+      .dashboard-page {
+        padding-top: 20px;
+        min-height: 100vh;
+      }
 
-      .tabs { display: flex; justify-content: center; gap: 10px; margin-bottom: 25px; flex-wrap: wrap; }
-      .tab-btn { padding: 0.8rem 1.5rem; border: none; background: rgba(255, 255, 255, 0.5); border-radius: 12px; font-weight: 600; color: #64748b; cursor: pointer; transition: all 0.3s ease; backdrop-filter: blur(4px); }
-      .tab-btn:hover { background: rgba(255, 255, 255, 0.8); transform: translateY(-2px); }
-      .tab-btn.active { background: rgba(139, 92, 246, 0.18); color: #4c1d95; }
+      .dashboard-container {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 0 16px 40px;
+        box-sizing: border-box;
+      }
+      
+      .dashboard-title {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin-bottom: 0.5rem;
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        text-align: center;
+      }
 
-      .tab-panel { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px); border-radius: 24px; padding: 2rem; width: 100%; max-width: 1000px; box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1); border: 1px solid rgba(255, 255, 255, 0.4); margin-bottom: 2rem; animation: fadeIn 0.5s ease-out; }
-      @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      .dashboard-subtitle {
+        color: #64748b;
+        font-size: 1.1rem;
+        margin-bottom: 2rem;
+        text-align: center;
+        max-width: 900px;
+      }
 
-      .send-btn { background: #10b981; color: white; border: none; padding: 0.9rem 1.4rem; border-radius: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; margin-top: 12px; }
-      .send-btn:hover { filter: brightness(0.95); transform: translateY(-2px); }
-      .send-btn:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
+      /* Tabs */
+      .tabs {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 25px;
+        flex-wrap: wrap;
+      }
 
-      .load-visual-btn { background: #8b5cf6; color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-right: 0.8rem; margin-bottom: 0.8rem; }
-      .load-visual-btn:hover { background: #7c3aed; transform: translateY(-2px); }
+      .tab-btn {
+        padding: 0.8rem 1.5rem;
+        border: none;
+        background: rgba(255, 255, 255, 0.5);
+        border-radius: 12px;
+        font-weight: 600;
+        color: #64748b;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(4px);
+      }
 
-      .student-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
+      .tab-btn:hover {
+        background: rgba(255, 255, 255, 0.8);
+        transform: translateY(-2px);
+      }
 
-      .student-charts-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 2rem; width: 100%; margin-top: 1.5rem; }
-      .student-chart { background: white; padding: 1.5rem; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); height: 420px; position: relative; }
-      .chart-title { font-size: 1.1rem; font-weight: 800; color: #1e293b; margin-bottom: 1rem; text-align: center; }
+      .tab-btn.active {
+        background: rgba(139, 92, 246, 0.18);
+        color: #4c1d95;
+      }
 
-      .logs-section { width: 100%; max-width: 1000px; background: rgba(30, 41, 59, 0.95); border-radius: 16px; padding: 1.5rem; margin-top: 1.5rem; color: #e2e8f0; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3); }
-      .logs-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #334155; padding-bottom: 0.5rem; }
+      /* Tab Panel */
+      .tab-panel {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(12px);
+        border-radius: 24px;
+        padding: 2rem;
+        width: 100%;
+        max-width: 1000px;
+        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        margin-bottom: 2rem;
+        animation: fadeIn 0.5s ease-out;
+      }
 
-      .clear-btn { border: none; background: rgba(148, 163, 184, 0.18); color: #e2e8f0; padding: 8px 12px; border-radius: 10px; cursor: pointer; font-weight: 700; }
-      .clear-btn:hover { background: rgba(148, 163, 184, 0.28); }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
 
-      .logs-list { list-style: none; padding: 0; margin: 0; max-height: 300px; overflow-y: auto; font-family: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 0.9rem; }
-      .log-item { padding: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); white-space: pre-wrap; word-break: break-word; }
+      /* Buttons */
+      .send-btn {
+        background: #10b981;
+        color: white;
+        border: none;
+        padding: 0.9rem 1.4rem;
+        border-radius: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-top: 12px;
+      }
+
+      .send-btn:hover {
+        filter: brightness(0.95);
+        transform: translateY(-2px);
+      }
+
+      .send-btn:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .load-visual-btn {
+        background: #8b5cf6;
+        color: white;
+        border: none;
+        padding: 0.8rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-right: 0.8rem;
+        margin-bottom: 0.8rem;
+      }
+
+      .load-visual-btn:hover {
+        background: #7c3aed;
+        transform: translateY(-2px);
+      }
+
+      .student-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin-top: 12px;
+      }
+
+      /* Student Charts */
+      .student-charts-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 2rem;
+        width: 100%;
+        margin-top: 1.5rem;
+      }
+
+      .student-chart {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 16px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        height: 420px;
+        position: relative;
+      }
+
+      .chart-title {
+        font-size: 1.1rem;
+        font-weight: 800;
+        color: #1e293b;
+        margin-bottom: 1rem;
+        text-align: center;
+      }
+
+      /* Logs */
+      .logs-section {
+        width: 100%;
+        max-width: 1000px;
+        background: rgba(30, 41, 59, 0.95);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-top: 1.5rem;
+        color: #e2e8f0;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+      }
+
+      .logs-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        border-bottom: 1px solid #334155;
+        padding-bottom: 0.5rem;
+      }
+
+      .clear-btn {
+        border: none;
+        background: rgba(148, 163, 184, 0.18);
+        color: #e2e8f0;
+        padding: 8px 12px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 700;
+      }
+
+      .clear-btn:hover {
+        background: rgba(148, 163, 184, 0.28);
+      }
+
+      .logs-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        max-height: 300px;
+        overflow-y: auto;
+        font-family: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 0.9rem;
+      }
+
+      .log-item {
+  padding: 0.5rem;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+
+  white-space: pre-wrap;   /* ✅ shows ordered lines */
+  word-break: break-word;  /* ✅ avoids overflow */
+}
+
+
       .log-item.green { color: #4ade80; }
       .log-item.yellow { color: #fbbf24; }
       .log-item.red { color: #f87171; }
       .log-item.info { color: #94a3b8; }
 
-      .teacher-report-box { background: white; border: 1px solid #e5e7eb; padding: 22px; margin-top: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.06); text-align: left; max-height: 70vh; overflow-y: auto; line-height: 1.55; }
-      .teacher-name { font-size: 1.3rem; margin-top: 16px; color: #111; display: block; }
-      .teacher-verdict { font-size: 1.05rem; color: #444; margin-bottom: 4px; display: block; }
-      .bullet { margin-left: 22px; display: block; }
-      .section-heading { margin-top: 10px; font-weight: 800; }
+      /* ------------------------------------------------------------------ */
+      /* TEACHER PERFORMANCE AI REPORT STYLES                               */
+      /* ------------------------------------------------------------------ */
+      .teacher-report-box {
+        background: white;
+        border: 1px solid #e5e7eb;
+        padding: 22px;
+        margin-top: 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+        text-align: left;
+        max-height: 70vh;
+        overflow-y: auto;
+        line-height: 1.55;
+      }
 
-      .no-data-message { background: rgba(255,255,255,0.7); border-radius: 14px; padding: 16px; border: 1px dashed rgba(100,116,139,0.5); color: #334155; }
+      .teacher-name {
+        font-size: 1.3rem;
+        margin-top: 16px;
+        color: #111;
+        display: block;
+      }
+
+      .teacher-verdict {
+        font-size: 1.05rem;
+        color: #444;
+        margin-bottom: 4px;
+        display: block;
+      }
+
+      .bullet {
+        margin-left: 22px;
+        display: block;
+      }
+
+      .section-heading {
+        margin-top: 10px;
+        font-weight: 800;
+      }
+
+      .no-data-message {
+        background: rgba(255,255,255,0.7);
+        border-radius: 14px;
+        padding: 16px;
+        border: 1px dashed rgba(100,116,139,0.5);
+        color: #334155;
+      }
     `}
   </style>
 );
@@ -117,6 +334,7 @@ const renderMarkdownAsHtml = (markdownText) => {
 const Dashboard = ({ onLogout }) => {
   const navigate = useNavigate();
 
+  // -------------------- STATES --------------------
   const [logs, setLogs] = useState([]);
   const [isSending, setIsSending] = useState(false);
   const [activeTab, setActiveTab] = useState("daily");
@@ -127,6 +345,7 @@ const Dashboard = ({ onLogout }) => {
   const [studentVisual, setStudentVisual] = useState(null);
   const [isProcessingAI, setIsProcessingAI] = useState(false);
 
+  // -------------------- CHART REFS --------------------
   const radarChartRef = useRef(null);
   const barChartRef = useRef(null);
   const lineChartRef = useRef(null);
@@ -134,13 +353,20 @@ const Dashboard = ({ onLogout }) => {
   const studentRadarRef = useRef(null);
   const studentRiskRef = useRef(null);
 
+  // -------------------- ECHART INSTANCES --------------------
   const radarInstanceRef = useRef(null);
   const barInstanceRef = useRef(null);
   const lineInstanceRef = useRef(null);
 
+  // -------------------- HELPERS --------------------
   const appendLog = (msg, type = "info") => {
     const colorClass =
-      { success: "green", warning: "yellow", error: "red", info: "info" }[type] || "info";
+      {
+        success: "green",
+        warning: "yellow",
+        error: "red",
+        info: "info",
+      }[type] || "info";
 
     setLogs((prev) => [
       ...prev,
@@ -158,12 +384,14 @@ const Dashboard = ({ onLogout }) => {
     navigate("/");
   };
 
+  // Resize charts on window resize
   useEffect(() => {
     const onResize = () => {
       radarInstanceRef.current?.resize?.();
       barInstanceRef.current?.resize?.();
       lineInstanceRef.current?.resize?.();
 
+      // student charts resize
       const sr = studentRadarRef.current ? echarts.getInstanceByDom(studentRadarRef.current) : null;
       const sk = studentRiskRef.current ? echarts.getInstanceByDom(studentRiskRef.current) : null;
       sr?.resize?.();
@@ -174,6 +402,9 @@ const Dashboard = ({ onLogout }) => {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
+  // ---------------------------------------------------------------------------
+  // DAILY REPORTS (SSE)
+  // ---------------------------------------------------------------------------
   const sendDaily = () => {
     setLogs([]);
     setIsSending(true);
@@ -194,6 +425,9 @@ const Dashboard = ({ onLogout }) => {
     };
   };
 
+  // ---------------------------------------------------------------------------
+  // WEEKLY MENU (SSE)
+  // ---------------------------------------------------------------------------
   const sendWeeklyMenu = () => {
     setLogs([]);
     setIsSending(true);
@@ -214,64 +448,71 @@ const Dashboard = ({ onLogout }) => {
     };
   };
 
+  // ---------------------------------------------------------------------------
+  // STUDENT STATUS (TEXT / ORDERED message from backend)
+  // ---------------------------------------------------------------------------
   const fetchStudentStatus = async () => {
-    appendLog("📊 Fetching student status...", "info");
-    try {
-      const res = await fetch("/student-status");
-      const json = await res.json();
+  appendLog("📊 Fetching student status...", "info");
+  try {
+    const res = await fetch("/student-status");
+    const json = await res.json();
 
-      // if parser failed, show rawText
-      if ((!json.students || json.students.length === 0) && json.rawText) {
-        appendLog("⚠️ RAW TEXT (copy/paste this):", "warning");
-        String(json.rawText)
-          .split("\n")
-          .slice(0, 200)
-          .forEach((line) => appendLog(line, "info"));
-        return;
-      }
+    // ✅ show rawText if parser failed
+    if ((!json.students || json.students.length === 0) && json.rawText) {
+  appendLog("⚠️ RAW TEXT (copy/paste this):", "warning");
+  String(json.rawText).split("\n").slice(0, 200).forEach(line => appendLog(line, "info"));
+  return;
+}
 
-      // normal display (per-student)
-      if (Array.isArray(json.students) && json.students.length > 0) {
-        json.students.forEach((s, idx) => {
-          appendLog(
-            `${idx + 1}. ${s.name} — ${s.risk_level} (Score: ${s.risk_score})\nReasons: ${(s.reasons || []).join(", ") || "N/A"}\nRecommendations: ${(s.recommendations || []).join(", ") || "N/A"}`,
-            "info"
-          );
-        });
-        return;
-      }
 
-      appendLog(json.message || "⚠️ No status returned.", "warning");
-    } catch (err) {
-      appendLog(`❌ Error fetching student status: ${err.message}`, "error");
+    // normal display
+    if (Array.isArray(json.students) && json.students.length > 0) {
+      json.students.forEach((s, idx) => {
+        appendLog(
+          `${idx + 1}. ${s.name} — ${s.risk_level} (Score: ${s.risk_score})\nReasons: ${(s.reasons||[]).join(", ") || "N/A"}\nRecommendations: ${(s.recommendations||[]).join(", ") || "N/A"}`,
+          "info"
+        );
+      });
+      return;
     }
-  };
 
+    appendLog(json.message || "⚠️ No status returned.", "warning");
+  } catch (err) {
+    appendLog(`❌ Error fetching student status: ${err.message}`, "error");
+  }
+};
+  // ---------------------------------------------------------------------------
+  // FETCH STUDENT VISUAL ANALYTICS DATA
+  // ---------------------------------------------------------------------------
   const fetchStudentVisual = async () => {
-    appendLog("🎒 Loading student visual analytics...", "info");
+  appendLog("🎒 Loading student visual analytics...", "info");
 
-    try {
-      const response = await fetch("/api/student-visual");
+  try {
+    const response = await fetch("/api/student-visual");
 
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`HTTP ${response.status} - ${errText}`);
-      }
-
-      const json = await response.json();
-
-      if (!json.students || !Array.isArray(json.students)) {
-        appendLog("❌ Invalid data format from server.", "error");
-        return;
-      }
-
-      setStudentVisual(json.students);
-      appendLog(`✅ Loaded data for ${json.students.length} students.`, "success");
-    } catch (err) {
-      appendLog(`❌ Student visuals fetch failed: ${err.message}`, "error");
+    if (!response.ok) {
+      const errText = await response.text(); // ✅ see real backend error
+      throw new Error(`HTTP ${response.status} - ${errText}`);
     }
-  };
 
+    const json = await response.json();
+
+    if (!json.students || !Array.isArray(json.students)) {
+      appendLog("❌ Invalid data format from server.", "error");
+      return;
+    }
+
+    setStudentVisual(json.students);
+    appendLog(`✅ Loaded data for ${json.students.length} students.`, "success");
+  } catch (err) {
+    appendLog(`❌ Student visuals fetch failed: ${err.message}`, "error");
+  }
+};
+
+
+  // ---------------------------------------------------------------------------
+  // MOCK STUDENT DATA FOR TESTING
+  // ---------------------------------------------------------------------------
   const loadMockStudentData = () => {
     appendLog("📋 Loading mock student data for testing...", "warning");
 
@@ -287,39 +528,50 @@ const Dashboard = ({ onLogout }) => {
     appendLog("✅ Mock student data loaded successfully.", "success");
   };
 
+  // ---------------------------------------------------------------------------
+  // TEACHER VISUAL DATA
+  // ---------------------------------------------------------------------------
   const fetchVisualData = async () => {
-    appendLog("📊 Loading teacher visual analytics...", "info");
+  appendLog("📊 Loading teacher visual analytics...", "info");
 
-    try {
-      const res = await fetch("/api/teacher-visual");
-      const json = await res.json();
+  try {
+    const res = await fetch("/api/teacher-visual");
+    const json = await res.json();
 
-      let teachers = [];
+    let teachers = [];
 
-      if (Array.isArray(json?.teachers)) {
-        teachers = json.teachers;
-      } else if (Array.isArray(json)) {
-        json.forEach((item) => {
-          if (Array.isArray(item?.teachers)) teachers.push(...item.teachers);
-        });
-
-        if (teachers.length === 0 && json.length && json[0]?.name) {
-          teachers = json;
-        }
-      }
-
-      if (!teachers.length) {
-        appendLog("❌ Teacher visual data missing / wrong format.", "error");
-        return;
-      }
-
-      appendLog(`✅ Teacher visuals loaded for ${teachers.length} teachers.`, "success");
-      setVisualData(teachers);
-    } catch (err) {
-      appendLog(`❌ Error loading teacher visuals: ${err.message}`, "error");
+    // ✅ preferred format from backend: { teachers: [...] }
+    if (Array.isArray(json?.teachers)) {
+      teachers = json.teachers;
     }
-  };
+    // fallback if backend returns array wrapper
+    else if (Array.isArray(json)) {
+      // if it’s like [{ teachers:[...] }, { teachers:[...] }]
+      json.forEach((item) => {
+        if (Array.isArray(item?.teachers)) teachers.push(...item.teachers);
+      });
 
+      // or array of teacher objects directly
+      if (teachers.length === 0 && json.length && json[0]?.name) {
+        teachers = json;
+      }
+    }
+
+    if (!teachers.length) {
+      appendLog("❌ Teacher visual data missing / wrong format.", "error");
+      return;
+    }
+
+    appendLog(`✅ Teacher visuals loaded for ${teachers.length} teachers.`, "success");
+    setVisualData(teachers); // ✅ will now have all 10
+  } catch (err) {
+    appendLog(`❌ Error loading teacher visuals: ${err.message}`, "error");
+  }
+};
+
+  // ---------------------------------------------------------------------------
+  // AI TEACHER REPORT (n8n)
+  // ---------------------------------------------------------------------------
   const triggerN8n = async () => {
     setIsProcessingAI(true);
     setTeacherReport(null);
@@ -338,6 +590,7 @@ const Dashboard = ({ onLogout }) => {
       setTeacherReport(json);
       appendLog("✅ AI teacher report generated.", "success");
 
+      // load visuals after report
       fetchVisualData();
     } catch {
       appendLog("❌ AI report failed.", "error");
@@ -346,7 +599,9 @@ const Dashboard = ({ onLogout }) => {
     setIsProcessingAI(false);
   };
 
-  // TEACHER charts
+  // ---------------------------------------------------------------------------
+  // TEACHER ECHARTS (Radar + Bar + Line)
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!visualData || !Array.isArray(visualData) || visualData.length === 0) return;
 
@@ -368,6 +623,7 @@ const Dashboard = ({ onLogout }) => {
     const suitability = visualData.map((t) => Number(t.suitabilityScore ?? 0));
     const expYears = visualData.map((t) => Number(t.experienceYears ?? 0));
 
+    // Radar
     if (radarChartRef.current) {
       echarts.dispose(radarChartRef.current);
       const chart = echarts.init(radarChartRef.current);
@@ -376,6 +632,7 @@ const Dashboard = ({ onLogout }) => {
       chart.setOption({
         title: { text: "Teacher Skill Radar", left: "center" },
         tooltip: { trigger: "item" },
+
         legend: {
           top: "middle",
           right: 10,
@@ -386,6 +643,7 @@ const Dashboard = ({ onLogout }) => {
           textStyle: { fontSize: 12 },
           data: names,
         },
+
         radar: {
           radius: "48%",
           center: ["38%", "50%"],
@@ -400,6 +658,7 @@ const Dashboard = ({ onLogout }) => {
             { name: "Creative Arts", max: 5 },
           ],
         },
+
         series: radarScores.map((scores, i) => ({
           type: "radar",
           name: names[i],
@@ -411,6 +670,7 @@ const Dashboard = ({ onLogout }) => {
       });
     }
 
+    // Bar
     if (barChartRef.current) {
       echarts.dispose(barChartRef.current);
       const chart = echarts.init(barChartRef.current);
@@ -448,6 +708,7 @@ const Dashboard = ({ onLogout }) => {
       });
     }
 
+    // Line
     if (lineChartRef.current) {
       echarts.dispose(lineChartRef.current);
       const chart = echarts.init(lineChartRef.current);
@@ -470,7 +731,13 @@ const Dashboard = ({ onLogout }) => {
         },
         yAxis: { type: "value" },
         series: [
-          { type: "line", smooth: true, data: expYears, symbolSize: 9, lineStyle: { width: 3 } },
+          {
+            type: "line",
+            smooth: true,
+            data: expYears,
+            symbolSize: 9,
+            lineStyle: { width: 3 },
+          },
         ],
       });
     }
@@ -482,10 +749,13 @@ const Dashboard = ({ onLogout }) => {
     }, 50);
   }, [visualData]);
 
-  // STUDENT charts
+  // ---------------------------------------------------------------------------
+  // STUDENT ECHARTS (Radar + Risk)
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!studentVisual || !studentRadarRef.current || studentVisual.length === 0) return;
 
+    // Dispose old
     const old = echarts.getInstanceByDom(studentRadarRef.current);
     if (old) echarts.dispose(old);
 
@@ -593,6 +863,9 @@ const Dashboard = ({ onLogout }) => {
     return () => chart.dispose();
   }, [studentVisual]);
 
+  // ---------------------------------------------------------------------------
+  // UI
+  // ---------------------------------------------------------------------------
   return (
     <>
       <InlineStyles />
@@ -606,23 +879,36 @@ const Dashboard = ({ onLogout }) => {
           </p>
 
           <div className="tabs">
-            <button className={`tab-btn ${activeTab === "daily" ? "active" : ""}`} onClick={() => setActiveTab("daily")}>
+            <button
+              className={`tab-btn ${activeTab === "daily" ? "active" : ""}`}
+              onClick={() => setActiveTab("daily")}
+            >
               Daily
             </button>
 
-            <button className={`tab-btn ${activeTab === "menu" ? "active" : ""}`} onClick={() => setActiveTab("menu")}>
+            <button
+              className={`tab-btn ${activeTab === "menu" ? "active" : ""}`}
+              onClick={() => setActiveTab("menu")}
+            >
               Menu
             </button>
 
-            <button className={`tab-btn ${activeTab === "status" ? "active" : ""}`} onClick={() => setActiveTab("status")}>
+            <button
+              className={`tab-btn ${activeTab === "status" ? "active" : ""}`}
+              onClick={() => setActiveTab("status")}
+            >
               Student Status
             </button>
 
-            <button className={`tab-btn ${activeTab === "ai" ? "active" : ""}`} onClick={() => setActiveTab("ai")}>
+            <button
+              className={`tab-btn ${activeTab === "ai" ? "active" : ""}`}
+              onClick={() => setActiveTab("ai")}
+            >
               🧠 Teacher Performance
             </button>
           </div>
 
+          {/* DAILY */}
           {activeTab === "daily" && (
             <div className="tab-panel">
               <h3>📨 Daily Reports</h3>
@@ -632,6 +918,7 @@ const Dashboard = ({ onLogout }) => {
             </div>
           )}
 
+          {/* MENU */}
           {activeTab === "menu" && (
             <div className="tab-panel">
               <h3>🍽️ Weekly Menu</h3>
@@ -641,6 +928,7 @@ const Dashboard = ({ onLogout }) => {
             </div>
           )}
 
+          {/* STUDENT STATUS */}
           {activeTab === "status" && (
             <div className="tab-panel">
               <h3>📊 Student Status & Analytics</h3>
@@ -650,11 +938,19 @@ const Dashboard = ({ onLogout }) => {
                   📊 Load Student Analytics
                 </button>
 
-                <button className="load-visual-btn" onClick={loadMockStudentData} style={{ background: "#6b7280" }}>
+                <button
+                  className="load-visual-btn"
+                  onClick={loadMockStudentData}
+                  style={{ background: "#6b7280" }}
+                >
                   🧪 Load Mock Data
                 </button>
 
-                <button className="load-visual-btn" onClick={fetchStudentStatus} style={{ background: "#10b981" }}>
+                <button
+                  className="load-visual-btn"
+                  onClick={fetchStudentStatus}
+                  style={{ background: "#10b981" }}
+                >
                   📄 Check Status (Text)
                 </button>
               </div>
@@ -671,6 +967,7 @@ const Dashboard = ({ onLogout }) => {
                     <div ref={studentRiskRef} style={{ height: "calc(100% - 40px)", width: "100%" }} />
                   </div>
 
+                  {/* Student Data Table */}
                   <div
                     style={{
                       gridColumn: "1 / -1",
@@ -735,12 +1032,18 @@ const Dashboard = ({ onLogout }) => {
             </div>
           )}
 
+          {/* TEACHER AI */}
           {activeTab === "ai" && (
             <div className="tab-panel">
               <h3>🧠 Teacher Performance</h3>
               <p>Generate AI insights and visual analytics for each teacher.</p>
 
-              <button className="send-btn" style={{ background: "#ef4444" }} onClick={triggerN8n} disabled={isProcessingAI}>
+              <button
+                className="send-btn"
+                style={{ background: "#ef4444" }}
+                onClick={triggerN8n}
+                disabled={isProcessingAI}
+              >
                 {isProcessingAI ? "⏳ Processing..." : "🚀 Generate AI Report"}
               </button>
 
@@ -755,12 +1058,15 @@ const Dashboard = ({ onLogout }) => {
               {teacherReport?.output && (
                 <div
                   className="teacher-report-box"
-                  dangerouslySetInnerHTML={{ __html: renderMarkdownAsHtml(teacherReport.output) }}
+                  dangerouslySetInnerHTML={{
+                    __html: renderMarkdownAsHtml(teacherReport.output),
+                  }}
                 />
               )}
             </div>
           )}
 
+          {/* LOGS */}
           <div className="logs-section">
             <div className="logs-header">
               <h3>Logs</h3>
