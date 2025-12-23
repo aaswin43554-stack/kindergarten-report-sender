@@ -206,19 +206,18 @@ const InlineStyles = () => (
         list-style: none;
         padding: 0;
         margin: 0;
-        max-height: 300px;
+        max-height: 400px;
         overflow-y: auto;
         font-family: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
         font-size: 0.9rem;
       }
 
       .log-item {
-  padding: 0.5rem;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-
-  white-space: pre-wrap;   /* ✅ shows ordered lines */
-  word-break: break-word;  /* ✅ avoids overflow */
-}
+        padding: 0.5rem;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        white-space: pre-wrap;   /* ✅ shows ordered lines */
+        word-break: break-word;  /* ✅ avoids overflow */
+      }
 
 
       .log-item.green { color: #4ade80; }
@@ -452,63 +451,62 @@ const Dashboard = ({ onLogout }) => {
   // STUDENT STATUS (TEXT / ORDERED message from backend)
   // ---------------------------------------------------------------------------
   const fetchStudentStatus = async () => {
-  appendLog("📊 Fetching student status...", "info");
-  try {
-    const res = await fetch("/student-status");
-    const json = await res.json();
+    appendLog("📊 Fetching student status...", "info");
+    try {
+      const res = await fetch("/student-status");
+      const json = await res.json();
 
-    // ✅ show rawText if parser failed
-    if ((!json.students || json.students.length === 0) && json.rawText) {
-  appendLog("⚠️ RAW TEXT (copy/paste this):", "warning");
-  String(json.rawText).split("\n").slice(0, 200).forEach(line => appendLog(line, "info"));
-  return;
-}
+      // ✅ show rawText if parser failed to help debug
+      if ((!json.students || json.students.length === 0) && json.rawText) {
+        appendLog("⚠️ RAW DATA RECEIVED (Parser failed to find blocks):", "warning");
+        String(json.rawText).split("\n").forEach(line => appendLog(line, "info"));
+        return;
+      }
 
-
-    // normal display
-    if (Array.isArray(json.students) && json.students.length > 0) {
-      json.students.forEach((s, idx) => {
-        appendLog(
-          `${idx + 1}. ${s.name} — ${s.risk_level} (Score: ${s.risk_score})\nReasons: ${(s.reasons||[]).join(", ") || "N/A"}\nRecommendations: ${(s.recommendations||[]).join(", ") || "N/A"}`,
-          "info"
-        );
-      });
-      return;
+      // ✅ Normal display logic using the "message" or mapping the student objects
+      if (Array.isArray(json.students) && json.students.length > 0) {
+        appendLog("📌 Student Risk Report (Ordered)", "success");
+        json.students.forEach((s, idx) => {
+          const reasons = Array.isArray(s.reasons) ? s.reasons.join(", ") : "N/A";
+          const recs = Array.isArray(s.recommendations) ? s.recommendations.join(", ") : "N/A";
+          
+          appendLog(`${idx + 1}. ${s.name} — ${s.risk_level} (Score: ${s.risk_score})\n   Reasons: ${reasons}\n   Recommendations: ${recs}`, "info");
+        });
+      } else {
+        appendLog(json.message || "⚠️ No status returned.", "warning");
+      }
+    } catch (err) {
+      appendLog(`❌ Error fetching student status: ${err.message}`, "error");
     }
+  };
 
-    appendLog(json.message || "⚠️ No status returned.", "warning");
-  } catch (err) {
-    appendLog(`❌ Error fetching student status: ${err.message}`, "error");
-  }
-};
   // ---------------------------------------------------------------------------
   // FETCH STUDENT VISUAL ANALYTICS DATA
   // ---------------------------------------------------------------------------
   const fetchStudentVisual = async () => {
-  appendLog("🎒 Loading student visual analytics...", "info");
+    appendLog("🎒 Loading student visual analytics...", "info");
 
-  try {
-    const response = await fetch("/api/student-visual");
+    try {
+      const response = await fetch("/api/student-visual");
 
-    if (!response.ok) {
-      const errText = await response.text(); // ✅ see real backend error
-      throw new Error(`HTTP ${response.status} - ${errText}`);
+      if (!response.ok) {
+        const errText = await response.text(); 
+        throw new Error(`HTTP ${response.status} - ${errText}`);
+      }
+
+      const json = await response.json();
+
+      if (!json.students || !Array.isArray(json.students)) {
+        appendLog("❌ Invalid data format from server.", "error");
+        return;
+      }
+
+      setStudentVisual(json.students);
+      appendLog(`✅ Loaded data for ${json.students.length} students.`, "success");
+    } catch (err) {
+      appendLog(`❌ Student visuals fetch failed: ${err.message}`, "error");
     }
-
-    const json = await response.json();
-
-    if (!json.students || !Array.isArray(json.students)) {
-      appendLog("❌ Invalid data format from server.", "error");
-      return;
-    }
-
-    setStudentVisual(json.students);
-    appendLog(`✅ Loaded data for ${json.students.length} students.`, "success");
-  } catch (err) {
-    appendLog(`❌ Student visuals fetch failed: ${err.message}`, "error");
-  }
-};
-
+  };
 
   // ---------------------------------------------------------------------------
   // MOCK STUDENT DATA FOR TESTING
@@ -532,42 +530,38 @@ const Dashboard = ({ onLogout }) => {
   // TEACHER VISUAL DATA
   // ---------------------------------------------------------------------------
   const fetchVisualData = async () => {
-  appendLog("📊 Loading teacher visual analytics...", "info");
+    appendLog("📊 Loading teacher visual analytics...", "info");
 
-  try {
-    const res = await fetch("/api/teacher-visual");
-    const json = await res.json();
+    try {
+      const res = await fetch("/api/teacher-visual");
+      const json = await res.json();
 
-    let teachers = [];
+      let teachers = [];
 
-    // ✅ preferred format from backend: { teachers: [...] }
-    if (Array.isArray(json?.teachers)) {
-      teachers = json.teachers;
-    }
-    // fallback if backend returns array wrapper
-    else if (Array.isArray(json)) {
-      // if it’s like [{ teachers:[...] }, { teachers:[...] }]
-      json.forEach((item) => {
-        if (Array.isArray(item?.teachers)) teachers.push(...item.teachers);
-      });
-
-      // or array of teacher objects directly
-      if (teachers.length === 0 && json.length && json[0]?.name) {
-        teachers = json;
+      if (Array.isArray(json?.teachers)) {
+        teachers = json.teachers;
       }
-    }
+      else if (Array.isArray(json)) {
+        json.forEach((item) => {
+          if (Array.isArray(item?.teachers)) teachers.push(...item.teachers);
+        });
 
-    if (!teachers.length) {
-      appendLog("❌ Teacher visual data missing / wrong format.", "error");
-      return;
-    }
+        if (teachers.length === 0 && json.length && json[0]?.name) {
+          teachers = json;
+        }
+      }
 
-    appendLog(`✅ Teacher visuals loaded for ${teachers.length} teachers.`, "success");
-    setVisualData(teachers); // ✅ will now have all 10
-  } catch (err) {
-    appendLog(`❌ Error loading teacher visuals: ${err.message}`, "error");
-  }
-};
+      if (!teachers.length) {
+        appendLog("❌ Teacher visual data missing / wrong format.", "error");
+        return;
+      }
+
+      appendLog(`✅ Teacher visuals loaded for ${teachers.length} teachers.`, "success");
+      setVisualData(teachers); 
+    } catch (err) {
+      appendLog(`❌ Error loading teacher visuals: ${err.message}`, "error");
+    }
+  };
 
   // ---------------------------------------------------------------------------
   // AI TEACHER REPORT (n8n)
@@ -590,7 +584,6 @@ const Dashboard = ({ onLogout }) => {
       setTeacherReport(json);
       appendLog("✅ AI teacher report generated.", "success");
 
-      // load visuals after report
       fetchVisualData();
     } catch {
       appendLog("❌ AI report failed.", "error");
@@ -623,7 +616,6 @@ const Dashboard = ({ onLogout }) => {
     const suitability = visualData.map((t) => Number(t.suitabilityScore ?? 0));
     const expYears = visualData.map((t) => Number(t.experienceYears ?? 0));
 
-    // Radar
     if (radarChartRef.current) {
       echarts.dispose(radarChartRef.current);
       const chart = echarts.init(radarChartRef.current);
@@ -670,7 +662,6 @@ const Dashboard = ({ onLogout }) => {
       });
     }
 
-    // Bar
     if (barChartRef.current) {
       echarts.dispose(barChartRef.current);
       const chart = echarts.init(barChartRef.current);
@@ -708,7 +699,6 @@ const Dashboard = ({ onLogout }) => {
       });
     }
 
-    // Line
     if (lineChartRef.current) {
       echarts.dispose(lineChartRef.current);
       const chart = echarts.init(lineChartRef.current);
@@ -755,7 +745,6 @@ const Dashboard = ({ onLogout }) => {
   useEffect(() => {
     if (!studentVisual || !studentRadarRef.current || studentVisual.length === 0) return;
 
-    // Dispose old
     const old = echarts.getInstanceByDom(studentRadarRef.current);
     if (old) echarts.dispose(old);
 
@@ -863,9 +852,6 @@ const Dashboard = ({ onLogout }) => {
     return () => chart.dispose();
   }, [studentVisual]);
 
-  // ---------------------------------------------------------------------------
-  // UI
-  // ---------------------------------------------------------------------------
   return (
     <>
       <InlineStyles />
@@ -908,7 +894,6 @@ const Dashboard = ({ onLogout }) => {
             </button>
           </div>
 
-          {/* DAILY */}
           {activeTab === "daily" && (
             <div className="tab-panel">
               <h3>📨 Daily Reports</h3>
@@ -918,7 +903,6 @@ const Dashboard = ({ onLogout }) => {
             </div>
           )}
 
-          {/* MENU */}
           {activeTab === "menu" && (
             <div className="tab-panel">
               <h3>🍽️ Weekly Menu</h3>
@@ -928,7 +912,6 @@ const Dashboard = ({ onLogout }) => {
             </div>
           )}
 
-          {/* STUDENT STATUS */}
           {activeTab === "status" && (
             <div className="tab-panel">
               <h3>📊 Student Status & Analytics</h3>
@@ -967,7 +950,6 @@ const Dashboard = ({ onLogout }) => {
                     <div ref={studentRiskRef} style={{ height: "calc(100% - 40px)", width: "100%" }} />
                   </div>
 
-                  {/* Student Data Table */}
                   <div
                     style={{
                       gridColumn: "1 / -1",
@@ -1032,7 +1014,6 @@ const Dashboard = ({ onLogout }) => {
             </div>
           )}
 
-          {/* TEACHER AI */}
           {activeTab === "ai" && (
             <div className="tab-panel">
               <h3>🧠 Teacher Performance</h3>
@@ -1066,7 +1047,6 @@ const Dashboard = ({ onLogout }) => {
             </div>
           )}
 
-          {/* LOGS */}
           <div className="logs-section">
             <div className="logs-header">
               <h3>Logs</h3>

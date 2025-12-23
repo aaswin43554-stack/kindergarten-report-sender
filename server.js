@@ -126,167 +126,119 @@ app.get("/student-status", async (req, res) => {
       JSON.stringify(raw);
 
     const text = String(analysisText || "")
-  .replace(/\r\n/g, "\n")
-  .trim();
+      .replace(/\r\n/g, "\n")
+      .trim();
 
-// ✅ Better splitting: split by numbered blocks on NEW LINES too
-const studentBlocks = text
-  .split(/\n(?=\s*\d+\.\s+)/g)
-  .map((s) => s.trim())
-  .filter(Boolean);
+    // ✅ Better splitting: split by numbered blocks on NEW LINES too
+    const studentBlocks = text
+      .split(/\n(?=\s*\d+\.\s+)/g)
+      .map((s) => s.trim())
+      .filter(Boolean);
 
-// ✅ Extract bullets better (handles •, -, 1), 1., newlines)
-const splitBullets = (s) =>
-  String(s || "")
-    .replace(/\r\n/g, "\n")
-    .split(/\n|•|- |\u2022/g)
-    .map((x) => x.trim())
-    .filter((x) => x && x.length > 2)
-    .slice(0, 10);
-
-// ✅ Accept MANY header formats
-// Examples handled:
-// "1. Kamesh S - HIGH RISK"
-// "1. Kamesh S — HIGH"
-// "1. Kamesh S - High Risk"
-// "1. Kamesh S - MEDIUM"
-// "1. Kamesh S - LOW"
-const parseHeader = (block) => {
-  const headerPatterns = [
-  // 1) "1. Name - HIGH RISK"
-  /^\s*\d+\.\s*([^\n—-]+?)\s*(?:—|-)\s*(HIGH|MEDIUM|LOW)\s*(?:RISK)?/im,
-
-  // 2) "Name: Kamesh S" and later "Risk: HIGH"
-  /Name\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/im,
-
-  // 3) "Student: Kamesh S" and later "Risk: HIGH"
-  /Student\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/im,
-];
-
-let head = null;
-for (const re of headerPatterns) {
-  const m = b.match(re);
-  if (m) {
-    head = { name: m[1].trim(), risk_level: normalizeRisk(m[2]) };
-    break;
-  }
-}
-
-if (!head) return null; // ✅ don't create fake Student 1..5
-
-  if (!headerMatch) return null;
-
-  return {
-    name: headerMatch[1].trim(),
-    risk_level: normalizeRisk(headerMatch[2]),
-  };
-};
-
-// ✅ Extract Reasons + Recommendations (supports ":" or "-" and multiline)
-const parseSection = (block, label) => {
-  const re = new RegExp(
-    `${label}\\s*[:\\-]\\s*([\\s\\S]*?)(?=\\n\\s*(Reasons|Recommendations|Observations|Notes|General Notes)\\s*[:\\-]|$)`,
-    "i"
-  );
-  const m = block.match(re);
-  return m?.[1]?.trim() || "";
-};
-
-// ✅ IMPROVED PARSER FOR REASONS AND RECOMMENDATIONS
-let students = studentBlocks
-  .map((block, idx) => {
-    const b = String(block || "").trim();
-    if (!b) return null;
-
-    // ✅ Stronger header detection (supports "-", "—", "HIGH", "HIGH RISK")
-    const headerMatch =
-  b.match(/^\s*\d+[.)]\s*([^\n—-]+?)\s*(?:—|-)\s*(HIGH|MEDIUM|LOW)/i) ||   // 1) Name - HIGH
-  b.match(/^\s*\d+\.\s*([^\n—-]+?)\s*(?:—|-)\s*(HIGH|MEDIUM|LOW)(?:\s*RISK)?/i) || // 1. Name - HIGH RISK
-  b.match(/^\s*([^\n—-]+?)\s*(?:—|-)\s*(HIGH|MEDIUM|LOW)(?:\s*RISK)?/i) || // Name - HIGH
-  b.match(/Name\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/i) || // Name: X ... Risk: HIGH
-  b.match(/Student\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/i);  // Student: X ... Risk: HIGH
-
-    // ✅ If no header → DO NOT create "Student 1"
-    if (!headerMatch) return null;
-
-    const name = headerMatch[1].trim();
-    const risk_level = normalizeRisk(headerMatch[2]);
-
-    // ✅ Extract sections (Reasons/Recommendations) robustly
-    const getSection = (text, labels) => {
-      const labelGroup = labels.join("|");
-      const stopGroup =
-        "(Reasons?|Concerns?|Challenges?|Recommendations?|Guidance|Next Steps?|Notes?|General Notes)";
-      const re = new RegExp(
-        `(?:^|\\n)\\s*(${labelGroup})\\s*[:\\-—]\\s*([\\s\\S]*?)(?=(?:\\n\\s*${stopGroup}\\s*[:\\-—])|$)`,
-        "i"
-      );
-      const m = text.match(re);
-      return (m?.[2] || "").trim();
-    };
-
+    // ✅ Extract bullets better (handles •, -, 1), 1., newlines)
     const splitBullets = (s) =>
       String(s || "")
         .replace(/\r\n/g, "\n")
-        .split(/\n|•|\u2022|-\s+|\*\s+/g)
+        .split(/\n|•|- |\u2022/g)
         .map((x) => x.trim())
         .filter((x) => x && x.length > 2)
         .slice(0, 10);
 
-    const reasonsRaw = getSection(b, ["Reasons?", "Concerns?", "Challenges?", "Specific Concerns?"]);
-    const recRaw = getSection(b, ["Recommendations?", "Guidance", "Next Steps?"]);
+    // ✅ Accept MANY header formats
+    const parseHeader = (block) => {
+      const headerPatterns = [
+        /^\s*\d+\.\s*([^\n—-]+?)\s*(?:—|-)\s*(HIGH|MEDIUM|LOW)\s*(?:RISK)?/im,
+        /Name\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/im,
+        /Student\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/im,
+      ];
 
-    const reasons = splitBullets(reasonsRaw);
-    const recommendations = splitBullets(recRaw);
-
-    const risk_score =
-      risk_level === "HIGH" ? 80 :
-      risk_level === "MEDIUM" ? 55 :
-      risk_level === "LOW" ? 25 : 0;
-
-    return {
-      id: String(idx),
-      name,
-      risk_level,
-      risk_score,
-      reasons,
-      recommendations
+      for (const re of headerPatterns) {
+        const m = block.match(re);
+        if (m) {
+          return { name: m[1].trim(), risk_level: normalizeRisk(m[2]) };
+        }
+      }
+      return null;
     };
-  })
-  .filter(Boolean);
 
-// ✅ If nothing parsed, return raw text so you can SEE what webhook sent
-if (!students.length) {
-  return res.json({
-    summary: "No students parsed from webhook text.",
-    message: "⚠️ Parser could not detect student blocks. Check rawText.",
-    students: [],
-    rawText,
-  });
-}
-students.sort((a, b) => {
-  const ao = riskOrder[a.risk_level] ?? 9;
-  const bo = riskOrder[b.risk_level] ?? 9;
-  if (ao !== bo) return ao - bo;
-  return (b.risk_score ?? 0) - (a.risk_score ?? 0);
-});
+    // ✅ Extract Reasons + Recommendations (supports ":" or "-" and multiline)
+    const parseSection = (block, label) => {
+      const re = new RegExp(
+        `${label}\\s*[:\\-—]\\s*([\\s\\S]*?)(?=\\n\\s*(Reasons|Recommendations|Observations|Notes|General Notes|Caveats|Guidance|Next Steps)\\s*[:\\-—]|$)`,
+        "i"
+      );
+      const m = block.match(re);
+      return m?.[1]?.trim() || "";
+    };
 
-const message = [
-  "📌 Student Risk Report (Ordered)",
-  "",
-  ...students.map((s, i) => {
-    const reasonsText = s.reasons.length ? s.reasons.join(", ") : "N/A";
-    const recText = s.recommendations.length ? s.recommendations.join(", ") : "N/A";
-    return `${i + 1}. ${s.name} — ${s.risk_level} (Score: ${s.risk_score})\n   Reasons: ${reasonsText}\n   Recommendations: ${recText}`;
-  }),
-].join("\n");
+    // ✅ IMPROVED PARSER FOR REASONS AND RECOMMENDATIONS
+    let students = studentBlocks
+      .map((block, idx) => {
+        const b = String(block || "").trim();
+        if (!b) return null;
 
-return res.json({
-  summary: "Student risk assessment generated.",
-  message,
-  students,
-  rawText,
-});
+        const header = parseHeader(b);
+        if (!header) return null;
+
+        const name = header.name;
+        const risk_level = header.risk_level;
+
+        // Extracting sections with higher reliability
+        const reasonsRaw = parseSection(b, "Reasons?");
+        const recRaw = parseSection(b, "Recommendations?");
+
+        const reasons = splitBullets(reasonsRaw);
+        const recommendations = splitBullets(recRaw);
+
+        const risk_score =
+          risk_level === "HIGH" ? 80 :
+          risk_level === "MEDIUM" ? 55 :
+          risk_level === "LOW" ? 25 : 0;
+
+        return {
+          id: String(idx),
+          name,
+          risk_level,
+          risk_score,
+          reasons: reasons.length > 0 ? reasons : ["N/A"],
+          recommendations: recommendations.length > 0 ? recommendations : ["N/A"]
+        };
+      })
+      .filter(Boolean);
+
+    // ✅ If nothing parsed, return raw text so you can SEE what webhook sent
+    if (!students.length) {
+      return res.json({
+        summary: "No students parsed from webhook text.",
+        message: "⚠️ Parser could not detect student blocks. Check rawText.",
+        students: [],
+        rawText,
+      });
+    }
+
+    students.sort((a, b) => {
+      const ao = riskOrder[a.risk_level] ?? 9;
+      const bo = riskOrder[b.risk_level] ?? 9;
+      if (ao !== bo) return ao - bo;
+      return (b.risk_score ?? 0) - (a.risk_score ?? 0);
+    });
+
+    const message = [
+      "📌 Student Risk Report (Ordered)",
+      "",
+      ...students.map((s, i) => {
+        const reasonsText = s.reasons.length ? s.reasons.join(", ") : "N/A";
+        const recText = s.recommendations.length ? s.recommendations.join(", ") : "N/A";
+        return `${i + 1}. ${s.name} — ${s.risk_level} (Score: ${s.risk_score})\n   Reasons: ${reasonsText}\n   Recommendations: ${recText}`;
+      }),
+    ].join("\n");
+
+    return res.json({
+      summary: "Student risk assessment generated.",
+      message,
+      students,
+      rawText,
+    });
 
   } catch (err) {
     console.error("❌ Student status error:", err);
@@ -389,8 +341,6 @@ app.get("/api/student-visual", async (req, res) => {
   }
 });
 
-
-
 // =======================================================
 // ✅ PRESERVED: your 2nd student visual route (renamed to avoid override)
 // =======================================================
@@ -431,7 +381,6 @@ app.get("/api/student-visual-alt", async (req, res) => {
 
 // =======================================================
 // ✅ FIXED: your “orphan” block is now a real route
-// This keeps ALL your code, but removes the crash.
 // =======================================================
 app.get("/student-status-full", async (req, res) => {
   try {
@@ -466,36 +415,31 @@ app.get("/student-status-full", async (req, res) => {
         .replace(/[ \t]+/g, " ")
         .trim();
       
-       // ✅ Split into blocks using MULTIPLE patterns:
-// 1) "1. " numbered
-// 2) "Student:" sections
-// 3) "Name:" sections
-// 4) fallback: split by blank lines
-let studentBlocks = [];
+      let studentBlocks = [];
 
-if (/\n\s*\d+\.\s+/.test(text)) {
-  studentBlocks = text.split(/\n(?=\s*\d+\.\s+)/g);      // 1. Name
-} else if (/\n\s*\d+\)\s+/.test(text)) {
-  studentBlocks = text.split(/\n(?=\s*\d+\)\s+)/g);      // 1) Name
-} else if (/Student\s*:/i.test(text)) {
-  studentBlocks = text.split(/(?=Student\s*:)/gi);       // Student:
-} else if (/Name\s*:/i.test(text)) {
-  studentBlocks = text.split(/(?=Name\s*:)/gi);          // Name:
-} else if (/\n\s*\n/.test(text)) {
-  studentBlocks = text.split(/\n\s*\n+/g);               // blank lines
-} else {
-  studentBlocks = [text];                                // fallback
-}
+      if (/\n\s*\d+\.\s+/.test(text)) {
+        studentBlocks = text.split(/\n(?=\s*\d+\.\s+)/g);      // 1. Name
+      } else if (/\n\s*\d+\)\s+/.test(text)) {
+        studentBlocks = text.split(/\n(?=\s*\d+\)\s+)/g);      // 1) Name
+      } else if (/Student\s*:/i.test(text)) {
+        studentBlocks = text.split(/(?=Student\s*:)/gi);       // Student:
+      } else if (/Name\s*:/i.test(text)) {
+        studentBlocks = text.split(/(?=Name\s*:)/gi);          // Name:
+      } else if (/\n\s*\n/.test(text)) {
+        studentBlocks = text.split(/\n\s*\n+/g);               // blank lines
+      } else {
+        studentBlocks = [text];                                // fallback
+      }
 
-studentBlocks = studentBlocks.map((s) => s.trim()).filter(Boolean);
+      studentBlocks = studentBlocks.map((s) => s.trim()).filter(Boolean);
 
       const splitBullets = (s) =>
-  String(s || "")
-    .replace(/\r\n/g, "\n")
-    .split(/\n|•|\u2022|-\s+|\*\s+/g)
-    .map((x) => x.trim())
-    .filter((x) => x && x.length > 2)
-    .slice(0, 10);
+        String(s || "")
+          .replace(/\r\n/g, "\n")
+          .split(/\n|•|\u2022|-\s+|\*\s+/g)
+          .map((x) => x.trim())
+          .filter((x) => x && x.length > 2)
+          .slice(0, 10);
 
       const students = studentBlocks
         .map((b, idx) => {
@@ -548,9 +492,7 @@ studentBlocks = studentBlocks.map((s) => s.trim()).filter(Boolean);
       return students;
     };
 
-    // -----------------------------
-    // 1) Supabase path (if configured)
-    // -----------------------------
+    // 1) Supabase path
     if (supabase) {
       try {
         const { data, error } = await supabase
@@ -578,9 +520,7 @@ studentBlocks = studentBlocks.map((s) => s.trim()).filter(Boolean);
       }
     }
 
-    // -----------------------------
     // 2) n8n webhook fallback
-    // -----------------------------
     const webhook =
       process.env.N8N_STUDENT_STATUS_URL ||
       process.env.N8N_WEBHOOK_URL ||
@@ -594,8 +534,8 @@ studentBlocks = studentBlocks.map((s) => s.trim()).filter(Boolean);
 
     const rawText = await response.text();
     console.log("----- STUDENT STATUS RAW START -----");
-console.log(rawText);
-console.log("----- STUDENT STATUS RAW END -----");
+    console.log(rawText);
+    console.log("----- STUDENT STATUS RAW END -----");
 
 
     let raw;
@@ -793,6 +733,12 @@ app.get("/api/teacher-visual", async (req, res) => {
       const response = await fetch(webhook);
       const text = await response.text();
 
+      // ✅ SAFETY GUARD: Check for empty response
+      if (!text || text.trim().length === 0) {
+        console.warn("⚠️ Webhook returned empty body");
+        return res.json({ teachers: [] });
+      }
+
       let raw;
       try {
         raw = JSON.parse(text);
@@ -828,6 +774,7 @@ app.get("/api/teacher-visual", async (req, res) => {
       return res.json({ teachers });
     } catch (err) {
       console.error("Teacher visual webhook error:", err.message);
+      return res.status(500).json({ error: err.message, teachers: [] });
     }
   } else {
     console.warn("N8N_TEACHER_VISUAL_URL not set, using sample data.");
