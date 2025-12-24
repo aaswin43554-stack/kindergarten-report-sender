@@ -154,33 +154,21 @@ const splitBullets = (s) =>
 // "1. Kamesh S - LOW"
 const parseHeader = (block) => {
   const headerPatterns = [
-  // 1) "1. Name - HIGH RISK"
-  /^\s*\d+\.\s*([^\n—-]+?)\s*(?:—|-)\s*(HIGH|MEDIUM|LOW)\s*(?:RISK)?/im,
+    /^\s*\d+\.\s*([^\n—-]+?)\s*(?:—|-)\s*(HIGH|MEDIUM|LOW)\s*(?:RISK)?/im,
+    /Name\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/im,
+    /Student\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/im,
+  ];
 
-  // 2) "Name: Kamesh S" and later "Risk: HIGH"
-  /Name\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/im,
-
-  // 3) "Student: Kamesh S" and later "Risk: HIGH"
-  /Student\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/im,
-];
-
-let head = null;
-for (const re of headerPatterns) {
-  const m = b.match(re);
-  if (m) {
-    head = { name: m[1].trim(), risk_level: normalizeRisk(m[2]) };
-    break;
+  for (const re of headerPatterns) {
+    const m = block.match(re); // Corrected from 'b' to 'block'
+    if (m) {
+      return { 
+        name: m[1].trim(), 
+        risk_level: normalizeRisk(m[2]) 
+      };
+    }
   }
-}
-
-if (!head) return null; // ✅ don't create fake Student 1..5
-
-  if (!headerMatch) return null;
-
-  return {
-    name: headerMatch[1].trim(),
-    risk_level: normalizeRisk(headerMatch[2]),
-  };
+  return null;
 };
 
 // ✅ Extract Reasons + Recommendations (supports ":" or "-" and multiline)
@@ -304,94 +292,64 @@ return res.json({
 // =======================================================
 app.get("/api/student-visual", async (req, res) => {
   try {
-    const webhook =
-      process.env.N8N_STUDENT_VISUAL_URL ||
-      "https://myaidesigntools.app.n8n.cloud/webhook/MODULE_2_VISUAL";
-
-    console.log("🎒 Fetching student visual data...", webhook);
+    const webhook = process.env.N8N_STUDENT_VISUAL_URL || "https://myaidesigntools.app.n8n.cloud/webhook/MODULE_2_VISUAL";
+    
+    console.log("🎒 Fetching visual data from:", webhook);
 
     const response = await fetch(webhook, {
       method: "GET",
-      headers: {
-        "Accept": "application/json",
-      },
+      headers: { "Accept": "application/json" },
     });
 
-    const contentType = response.headers.get("content-type") || "";
-    const bodyText = await response.text().catch(() => "");
+    const bodyText = await response.text();
 
-    console.log("✅ n8n status:", response.status);
-    console.log("✅ n8n content-type:", contentType);
-    console.log("✅ n8n body preview:", bodyText.slice(0, 300));
-
+    // ERROR CHECK 1: If n8n or an API is down/out of credits
     if (!response.ok) {
-      return res.status(500).json({
-        error: `N8N responded with ${response.status}`,
-        contentType,
-        rawPreview: bodyText.slice(0, 300),
-        students: [],
+      return res.status(response.status).json({
+        error: `External Service Error: ${response.status}`,
+        message: "Your API or Webhook might be out of credits or offline.",
+        rawPreview: bodyText.slice(0, 200)
       });
     }
 
+    // ERROR CHECK 2: If the response is not JSON
     let raw;
     try {
       raw = JSON.parse(bodyText);
-    } catch {
+    } catch (e) {
       return res.status(500).json({
-        error: "Student visual webhook returned non-JSON",
-        contentType,
-        rawPreview: bodyText.slice(0, 300),
-        students: [],
+        error: "Webhook returned non-JSON text",
+        details: "The server sent text instead of a data object. Check if your top-up is active.",
+        rawPreview: bodyText.slice(0, 300)
       });
     }
 
-    // unwrap common formats
+    // Process the data safely
     let data = raw;
     if (Array.isArray(data) && data.length === 1) data = data[0];
     if (data?.output && typeof data.output === "string") {
-      try { data = JSON.parse(data.output); } catch {}
+      try { data = JSON.parse(data.output); } catch (e) { /* use as is */ }
     }
-    if (data?.data?.students) data = data.data;
-    if (Array.isArray(data) && data[0]?.students) data = data[0];
 
-    const students =
-      (Array.isArray(data?.students) && data.students) ||
-      (Array.isArray(data) && data) ||
-      [];
+    const rawStudents = data?.students || (Array.isArray(data) ? data : []);
 
-    const normalizeRiskLabel = (v) => {
-      const up = String(v || "").toLowerCase();
-      if (up.includes("high")) return "High";
-      if (up.includes("med")) return "Medium";
-      if (up.includes("low")) return "Low";
-      return "Low";
-    };
-
-    const normalized = students.map((s, idx) => ({
+    const normalized = rawStudents.map((s, idx) => ({
       id: s.id ?? String(idx),
-      name: s.name || s.studentName || s.student_name || "Unknown",
-      avgAppetite: Number(s.avgAppetite ?? s.appetite ?? s.avg_appetite) || 0,
-      avgSleep: Number(s.avgSleep ?? s.sleep ?? s.avg_sleep) || 0,
-      avgBehaviour: Number(s.avgBehaviour ?? s.behaviour ?? s.avg_behaviour) || 0,
-      avgMood: Number(s.avgMood ?? s.mood ?? s.avg_mood) || 0,
-      riskLevel: normalizeRiskLabel(s.riskLevel ?? s.risk_level ?? s.risk ?? "Low"),
+      name: s.name || s.studentName || "Unknown Student",
+      avgAppetite: Number(s.avgAppetite ?? s.appetite ?? 0),
+      avgSleep: Number(s.avgSleep ?? s.sleep ?? 0),
+      avgBehaviour: Number(s.avgBehaviour ?? s.behaviour ?? 0),
+      avgMood: Number(s.avgMood ?? s.mood ?? 0),
+      riskLevel: s.riskLevel || s.risk_level || "Low",
     }));
 
-    return res.json({
-      students: normalized,
-      meta: { status: response.status, contentType },
-    });
+    return res.json({ students: normalized });
+
   } catch (err) {
-    console.error("❌ Student visual error:", err);
-    return res.status(500).json({
-      error: err.message || "Unknown server error",
-      students: [],
-    });
+    console.error("❌ Critical error:", err);
+    return res.status(500).json({ error: "Server Error", details: err.message });
   }
 });
-
-
-
 // =======================================================
 // ✅ PRESERVED: your 2nd student visual route (renamed to avoid override)
 // =======================================================
