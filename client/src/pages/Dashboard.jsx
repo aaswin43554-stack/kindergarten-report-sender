@@ -384,6 +384,29 @@ const Dashboard = ({ onLogout }) => {
     navigate("/");
   };
 
+  // =======================================================
+  // ✅ RISK COLORS + NORMALIZER (GLOBAL INSIDE COMPONENT)
+  // High = Red, Medium = Yellow, Low = Green
+  // =======================================================
+  const RISK_COLORS = {
+    High: "#ef4444", // red
+    Medium: "#facc15", // yellow
+    Low: "#22c55e", // green
+  };
+
+  const riskLabel = (v) => {
+    const s = String(v || "").trim().toLowerCase();
+    if (s.includes("high")) return "High";
+    if (s.includes("medium") || s.includes("med")) return "Medium";
+    return "Low";
+  };
+
+  const riskToScoreLocal = (label) => {
+    if (label === "High") return 3;
+    if (label === "Medium") return 2;
+    return 1;
+  };
+
   // Resize charts on window resize
   useEffect(() => {
     const onResize = () => {
@@ -452,75 +475,65 @@ const Dashboard = ({ onLogout }) => {
   // STUDENT STATUS (TEXT / ORDERED message from backend)
   // ---------------------------------------------------------------------------
   const fetchStudentStatus = async () => {
-  appendLog("📊 Fetching student status...", "info");
-  try {
-    const res = await fetch("/student-status");
-    const json = await res.json();
+    appendLog("📊 Fetching student status...", "info");
+    try {
+      const res = await fetch("/student-status");
+      const json = await res.json();
 
-    // ✅ show rawText if parser failed
-    if ((!json.students || json.students.length === 0) && json.rawText) {
-  appendLog("⚠️ RAW TEXT (copy/paste this):", "warning");
-  String(json.rawText).split("\n").slice(0, 200).forEach(line => appendLog(line, "info"));
-  return;
-}
+      // ✅ show rawText if parser failed
+      if ((!json.students || json.students.length === 0) && json.rawText) {
+        appendLog("⚠️ RAW TEXT (copy/paste this):", "warning");
+        String(json.rawText)
+          .split("\n")
+          .slice(0, 200)
+          .forEach((line) => appendLog(line, "info"));
+        return;
+      }
 
+      // normal display
+      if (Array.isArray(json.students) && json.students.length > 0) {
+        json.students.forEach((s, idx) => {
+          appendLog(
+            `${idx + 1}. ${s.name} — ${s.risk_level} (Score: ${s.risk_score})\nReasons: ${(s.reasons || []).join(", ") || "N/A"}\nRecommendations: ${(s.recommendations || []).join(", ") || "N/A"}`,
+            "info"
+          );
+        });
+        return;
+      }
 
-    // normal display
-    if (Array.isArray(json.students) && json.students.length > 0) {
-      json.students.forEach((s, idx) => {
-        appendLog(
-          `${idx + 1}. ${s.name} — ${s.risk_level} (Score: ${s.risk_score})\nReasons: ${(s.reasons||[]).join(", ") || "N/A"}\nRecommendations: ${(s.recommendations||[]).join(", ") || "N/A"}`,
-          "info"
-        );
-      });
-      return;
+      appendLog(json.message || "⚠️ No status returned.", "warning");
+    } catch (err) {
+      appendLog(`❌ Error fetching student status: ${err.message}`, "error");
     }
+  };
 
-    appendLog(json.message || "⚠️ No status returned.", "warning");
-  } catch (err) {
-    appendLog(`❌ Error fetching student status: ${err.message}`, "error");
-  }
-};
   // ---------------------------------------------------------------------------
   // FETCH STUDENT VISUAL ANALYTICS DATA
   // ---------------------------------------------------------------------------
-  const RISK_COLORS = {
-  High: "#ef4444",    // red
-  Medium: "#facc15",  // yellow
-  Low: "#22c55e",     // green
-};
+  const fetchStudentVisual = async () => {
+    appendLog("🎒 Loading student visual analytics...", "info");
 
-const riskLabel = (v) => {
-  const s = String(v || "").trim().toLowerCase();
-  if (s.includes("high")) return "High";
-  if (s.includes("medium") || s.includes("med")) return "Medium";
-  return "Low";
-};
-const fetchStudentVisual = async () => {
-  appendLog("🎒 Loading student visual analytics...", "info");
+    try {
+      const response = await fetch("/api/student-visual");
 
-  try {
-    const response = await fetch("/api/student-visual");
+      if (!response.ok) {
+        const errText = await response.text(); // ✅ see real backend error
+        throw new Error(`HTTP ${response.status} - ${errText}`);
+      }
 
-    if (!response.ok) {
-      const errText = await response.text(); // ✅ see real backend error
-      throw new Error(`HTTP ${response.status} - ${errText}`);
+      const json = await response.json();
+
+      if (!json.students || !Array.isArray(json.students)) {
+        appendLog("❌ Invalid data format from server.", "error");
+        return;
+      }
+
+      setStudentVisual(json.students);
+      appendLog(`✅ Loaded data for ${json.students.length} students.`, "success");
+    } catch (err) {
+      appendLog(`❌ Student visuals fetch failed: ${err.message}`, "error");
     }
-
-    const json = await response.json();
-
-    if (!json.students || !Array.isArray(json.students)) {
-      appendLog("❌ Invalid data format from server.", "error");
-      return;
-    }
-
-    setStudentVisual(json.students);
-    appendLog(`✅ Loaded data for ${json.students.length} students.`, "success");
-  } catch (err) {
-    appendLog(`❌ Student visuals fetch failed: ${err.message}`, "error");
-  }
-};
-
+  };
 
   // ---------------------------------------------------------------------------
   // MOCK STUDENT DATA FOR TESTING
@@ -529,11 +542,11 @@ const fetchStudentVisual = async () => {
     appendLog("📋 Loading mock student data for testing...", "warning");
 
     const mockStudents = [
-      { name: "Emma Johnson", avgAppetite: 4.2, avgSleep: 3.8, avgBehaviour: 4.5, avgMood: 4.0, riskLevel: "Low" },
-      { name: "Noah Smith", avgAppetite: 2.8, avgSleep: 3.0, avgBehaviour: 2.5, avgMood: 2.2, riskLevel: "High" },
-      { name: "Olivia Davis", avgAppetite: 3.5, avgSleep: 4.0, avgBehaviour: 3.8, avgMood: 3.5, riskLevel: "Medium" },
-      { name: "Liam Wilson", avgAppetite: 4.5, avgSleep: 4.2, avgBehaviour: 4.8, avgMood: 4.5, riskLevel: "Low" },
-      { name: "Sophia Brown", avgAppetite: 3.0, avgSleep: 2.5, avgBehaviour: 3.2, avgMood: 2.8, riskLevel: "High" },
+      { name: "Emma Johnson", avgAppetite: 4.2, avgSleep: 3.8, avgBehaviour: 4.5, avgMood: 4.0, riskLevel: "Low", riskScore: 1 },
+      { name: "Noah Smith", avgAppetite: 2.8, avgSleep: 3.0, avgBehaviour: 2.5, avgMood: 2.2, riskLevel: "High", riskScore: 3 },
+      { name: "Olivia Davis", avgAppetite: 3.5, avgSleep: 4.0, avgBehaviour: 3.8, avgMood: 3.5, riskLevel: "Medium", riskScore: 2 },
+      { name: "Liam Wilson", avgAppetite: 4.5, avgSleep: 4.2, avgBehaviour: 4.8, avgMood: 4.5, riskLevel: "Low", riskScore: 1 },
+      { name: "Sophia Brown", avgAppetite: 3.0, avgSleep: 2.5, avgBehaviour: 3.2, avgMood: 2.8, riskLevel: "High", riskScore: 3 },
     ];
 
     setStudentVisual(mockStudents);
@@ -544,42 +557,42 @@ const fetchStudentVisual = async () => {
   // TEACHER VISUAL DATA
   // ---------------------------------------------------------------------------
   const fetchVisualData = async () => {
-  appendLog("📊 Loading teacher visual analytics...", "info");
+    appendLog("📊 Loading teacher visual analytics...", "info");
 
-  try {
-    const res = await fetch("/api/teacher-visual");
-    const json = await res.json();
+    try {
+      const res = await fetch("/api/teacher-visual");
+      const json = await res.json();
 
-    let teachers = [];
+      let teachers = [];
 
-    // ✅ preferred format from backend: { teachers: [...] }
-    if (Array.isArray(json?.teachers)) {
-      teachers = json.teachers;
-    }
-    // fallback if backend returns array wrapper
-    else if (Array.isArray(json)) {
-      // if it’s like [{ teachers:[...] }, { teachers:[...] }]
-      json.forEach((item) => {
-        if (Array.isArray(item?.teachers)) teachers.push(...item.teachers);
-      });
-
-      // or array of teacher objects directly
-      if (teachers.length === 0 && json.length && json[0]?.name) {
-        teachers = json;
+      // ✅ preferred format from backend: { teachers: [...] }
+      if (Array.isArray(json?.teachers)) {
+        teachers = json.teachers;
       }
-    }
+      // fallback if backend returns array wrapper
+      else if (Array.isArray(json)) {
+        // if it’s like [{ teachers:[...] }, { teachers:[...] }]
+        json.forEach((item) => {
+          if (Array.isArray(item?.teachers)) teachers.push(...item.teachers);
+        });
 
-    if (!teachers.length) {
-      appendLog("❌ Teacher visual data missing / wrong format.", "error");
-      return;
-    }
+        // or array of teacher objects directly
+        if (teachers.length === 0 && json.length && json[0]?.name) {
+          teachers = json;
+        }
+      }
 
-    appendLog(`✅ Teacher visuals loaded for ${teachers.length} teachers.`, "success");
-    setVisualData(teachers); // ✅ will now have all 10
-  } catch (err) {
-    appendLog(`❌ Error loading teacher visuals: ${err.message}`, "error");
-  }
-};
+      if (!teachers.length) {
+        appendLog("❌ Teacher visual data missing / wrong format.", "error");
+        return;
+      }
+
+      appendLog(`✅ Teacher visuals loaded for ${teachers.length} teachers.`, "success");
+      setVisualData(teachers); // ✅ will now have all 10
+    } catch (err) {
+      appendLog(`❌ Error loading teacher visuals: ${err.message}`, "error");
+    }
+  };
 
   // ---------------------------------------------------------------------------
   // AI TEACHER REPORT (n8n)
@@ -825,6 +838,10 @@ const fetchStudentVisual = async () => {
     return () => chart.dispose();
   }, [studentVisual]);
 
+  // ✅ FIXED: Student Risk bar chart
+  // - NOT stacked 0/1 anymore
+  // - Uses riskScore -> Low(1), Medium(2), High(3)
+  // - Colors: Low green, Medium yellow, High red
   useEffect(() => {
     if (!studentVisual || !studentRiskRef.current || studentVisual.length === 0) return;
 
@@ -834,41 +851,87 @@ const fetchStudentVisual = async () => {
     const chart = echarts.init(studentRiskRef.current);
     const names = studentVisual.map((s) => s.name);
 
-    const highRiskData = [];
-    const mediumRiskData = [];
-    const lowRiskData = [];
+    const values = studentVisual.map((student) => {
+      const lvl = riskLabel(student.riskLevel);
+      return Number(student.riskScore ?? riskToScoreLocal(lvl)); // ✅ height
+    });
 
-    studentVisual.forEach((student) => {
-      const r = String(student.riskLevel || "").toLowerCase();
-      if (r === "high") {
-        highRiskData.push(1); mediumRiskData.push(0); lowRiskData.push(0);
-      } else if (r === "medium") {
-        highRiskData.push(0); mediumRiskData.push(1); lowRiskData.push(0);
-      } else {
-        highRiskData.push(0); mediumRiskData.push(0); lowRiskData.push(1);
-      }
+    const barColors = studentVisual.map((student) => {
+      const lvl = riskLabel(student.riskLevel);
+      return RISK_COLORS[lvl]; // ✅ color
     });
 
     chart.setOption({
       title: { text: "Student Risk Levels", left: "center", textStyle: { fontSize: 18, fontWeight: "bold" } },
-      legend: { bottom: 10, data: ["High Risk", "Medium Risk", "Low Risk"], textStyle: { fontSize: 12 } },
       tooltip: {
         trigger: "axis",
         axisPointer: { type: "shadow" },
         formatter: (params) => {
           const index = params[0].dataIndex;
           const student = studentVisual[index];
-          const risk = student?.riskLevel || "Low";
-          return `<strong>${student.name}</strong><br/>Risk Level: <strong>${risk}</strong>`;
+          const lvl = riskLabel(student?.riskLevel);
+          return `<strong>${student.name}</strong><br/>Risk Level: <strong>${lvl}</strong>`;
         },
       },
-      grid: { left: "3%", right: "4%", bottom: "15%", top: "15%", containLabel: true },
+      grid: { left: "3%", right: "4%", bottom: "18%", top: "15%", containLabel: true },
       xAxis: { type: "category", data: names, axisLabel: { interval: 0, rotate: 30, fontSize: 12, margin: 10 } },
-      yAxis: { type: "value", min: 0, max: 1, axisLabel: { formatter: (v) => (v === 1 ? "✓" : "") } },
+      yAxis: {
+        type: "value",
+        min: 0,
+        max: 3,
+        interval: 1,
+        axisLabel: {
+          formatter: (v) => {
+            if (v === 1) return "Low";
+            if (v === 2) return "Medium";
+            if (v === 3) return "High";
+            return "";
+          },
+        },
+      },
       series: [
-        { name: "High Risk", type: "bar", stack: "total", data: highRiskData, barWidth: "60%" },
-        { name: "Medium Risk", type: "bar", stack: "total", data: mediumRiskData, barWidth: "60%" },
-        { name: "Low Risk", type: "bar", stack: "total", data: lowRiskData, barWidth: "60%" },
+        {
+          name: "Risk Level",
+          type: "bar",
+          data: values,
+          barWidth: "55%",
+          itemStyle: {
+            borderRadius: [8, 8, 0, 0],
+            color: (p) => barColors[p.dataIndex],
+          },
+        },
+      ],
+    });
+
+    // ✅ Custom legend (fixed colors)
+    chart.setOption({
+      legend: {
+        bottom: 10,
+        data: ["High Risk", "Medium Risk", "Low Risk"],
+        textStyle: { fontSize: 12 },
+        selectedMode: false,
+        formatter: (name) => name,
+      },
+    });
+
+    // We use graphic blocks to match legend colors visually
+    chart.setOption({
+      graphic: [
+        {
+          type: "group",
+          left: "center",
+          bottom: 2,
+          children: [
+            { type: "rect", shape: { x: -180, y: 0, width: 24, height: 12 }, style: { fill: RISK_COLORS.High, r: 3 } },
+            { type: "text", style: { x: -150, y: 10, text: "High Risk", fill: "#334155", font: "12px sans-serif" } },
+
+            { type: "rect", shape: { x: -40, y: 0, width: 24, height: 12 }, style: { fill: RISK_COLORS.Medium, r: 3 } },
+            { type: "text", style: { x: -10, y: 10, text: "Medium Risk", fill: "#334155", font: "12px sans-serif" } },
+
+            { type: "rect", shape: { x: 120, y: 0, width: 24, height: 12 }, style: { fill: RISK_COLORS.Low, r: 3 } },
+            { type: "text", style: { x: 150, y: 10, text: "Low Risk", fill: "#334155", font: "12px sans-serif" } },
+          ],
+        },
       ],
     });
 
@@ -1004,33 +1067,31 @@ const fetchStudentVisual = async () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {studentVisual.map((student, index) => (
-                          <tr key={index} style={{ borderBottom: "1px solid #e5e7eb" }}>
-                            <td style={{ padding: "12px" }}>{student.name}</td>
-                            <td style={{ padding: "12px" }}>{Number(student.avgAppetite).toFixed(1)}</td>
-                            <td style={{ padding: "12px" }}>{Number(student.avgSleep).toFixed(1)}</td>
-                            <td style={{ padding: "12px" }}>{Number(student.avgBehaviour).toFixed(1)}</td>
-                            <td style={{ padding: "12px" }}>{Number(student.avgMood).toFixed(1)}</td>
-                            <td style={{ padding: "12px" }}>
-                              <span
-                                style={{
-                                  padding: "4px 12px",
-                                  borderRadius: "20px",
-                                  color: "white",
-                                  fontSize: "0.85rem",
-                                  background:
-                                    student.riskLevel === "High"
-                                      ? "#ef4444"
-                                      : student.riskLevel === "Medium"
-                                      ? "#f59e0b"
-                                      : "#10b981",
-                                }}
-                              >
-                                {student.riskLevel}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                        {studentVisual.map((student, index) => {
+                          const lvl = riskLabel(student.riskLevel);
+                          return (
+                            <tr key={index} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                              <td style={{ padding: "12px" }}>{student.name}</td>
+                              <td style={{ padding: "12px" }}>{Number(student.avgAppetite).toFixed(1)}</td>
+                              <td style={{ padding: "12px" }}>{Number(student.avgSleep).toFixed(1)}</td>
+                              <td style={{ padding: "12px" }}>{Number(student.avgBehaviour).toFixed(1)}</td>
+                              <td style={{ padding: "12px" }}>{Number(student.avgMood).toFixed(1)}</td>
+                              <td style={{ padding: "12px" }}>
+                                <span
+                                  style={{
+                                    padding: "4px 12px",
+                                    borderRadius: "20px",
+                                    color: "white",
+                                    fontSize: "0.85rem",
+                                    background: RISK_COLORS[lvl], // ✅ fixed colors
+                                  }}
+                                >
+                                  {lvl}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
