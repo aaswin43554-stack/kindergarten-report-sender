@@ -259,6 +259,20 @@ students.sort((a, b) => {
   if (ao !== bo) return ao - bo;
   return (b.risk_score ?? 0) - (a.risk_score ?? 0);
 });
+function normalizeRiskLevel(v) {
+  const s = String(v || "").trim().toLowerCase();
+  if (s.includes("high")) return "High";
+  if (s.includes("medium") || s.includes("med")) return "Medium";
+  if (s.includes("low") || s.includes("normal")) return "Low";
+  return "Low";
+}
+
+function riskToScore(level) {
+  if (level === "High") return 3;
+  if (level === "Medium") return 2;
+  return 1; // Low
+}
+
 
 const message = [
   "📌 Student Risk Report (Ordered)",
@@ -333,15 +347,23 @@ app.get("/api/student-visual", async (req, res) => {
 
     const rawStudents = data?.students || (Array.isArray(data) ? data : []);
 
-    const normalized = rawStudents.map((s, idx) => ({
-      id: s.id ?? String(idx),
-      name: s.name || s.studentName || "Unknown Student",
-      avgAppetite: Number(s.avgAppetite ?? s.appetite ?? 0),
-      avgSleep: Number(s.avgSleep ?? s.sleep ?? 0),
-      avgBehaviour: Number(s.avgBehaviour ?? s.behaviour ?? 0),
-      avgMood: Number(s.avgMood ?? s.mood ?? 0),
-      riskLevel: s.riskLevel || s.risk_level || "Low",
-    }));
+    const normalized = rawStudents.map((s, idx) => {
+  const riskLevel = normalizeRiskLevel(s.riskLevel || s.risk_level || s.level);
+
+  return {
+    id: s.id ?? String(idx),
+    name: s.name || s.studentName || "Unknown Student",
+    avgAppetite: Number(s.avgAppetite ?? s.appetite ?? 0),
+    avgSleep: Number(s.avgSleep ?? s.sleep ?? 0),
+    avgBehaviour: Number(s.avgBehaviour ?? s.behaviour ?? 0),
+    avgMood: Number(s.avgMood ?? s.mood ?? 0),
+
+    // ✅ consistent + used for UI
+    riskLevel,
+    riskScore: riskToScore(riskLevel), // ✅ 1=Low, 2=Medium, 3=High
+  };
+});
+
 
     return res.json({ students: normalized });
 
@@ -372,14 +394,21 @@ app.get("/api/student-visual-alt", async (req, res) => {
 
     const students = Array.isArray(data?.students) ? data.students : [];
 
-    const normalized = students.map((s) => ({
-      ...s,
-      avgAppetite: Number(s.avgAppetite) || 0,
-      avgSleep: Number(s.avgSleep) || 0,
-      avgBehaviour: Number(s.avgBehaviour) || 0,
-      avgMood: Number(s.avgMood) || 0,
-      riskLevel: s.riskLevel || s.risk_level || "Low",
-    }));
+    const normalized = students.map((s) => {
+  const riskLevel = normalizeRiskLevel(s.riskLevel || s.risk_level || s.level);
+
+  return {
+    ...s,
+    avgAppetite: Number(s.avgAppetite) || 0,
+    avgSleep: Number(s.avgSleep) || 0,
+    avgBehaviour: Number(s.avgBehaviour) || 0,
+    avgMood: Number(s.avgMood) || 0,
+
+    riskLevel,
+    riskScore: riskToScore(riskLevel),
+  };
+});
+
 
     return res.json({ students: normalized });
   } catch (err) {

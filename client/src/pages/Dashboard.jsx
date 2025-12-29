@@ -484,7 +484,19 @@ const Dashboard = ({ onLogout }) => {
   // ---------------------------------------------------------------------------
   // FETCH STUDENT VISUAL ANALYTICS DATA
   // ---------------------------------------------------------------------------
-  const fetchStudentVisual = async () => {
+  const RISK_COLORS = {
+  High: "#ef4444",    // red
+  Medium: "#facc15",  // yellow
+  Low: "#22c55e",     // green
+};
+
+const riskLabel = (v) => {
+  const s = String(v || "").trim().toLowerCase();
+  if (s.includes("high")) return "High";
+  if (s.includes("medium") || s.includes("med")) return "Medium";
+  return "Low";
+};
+const fetchStudentVisual = async () => {
   appendLog("🎒 Loading student visual analytics...", "info");
 
   try {
