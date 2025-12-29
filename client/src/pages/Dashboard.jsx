@@ -482,82 +482,80 @@ const Dashboard = ({ onLogout }) => {
   }
 };
  // ---------------------------------------------------------------------------
-  // 1. FETCH STUDENT VISUAL ANALYTICS DATA (Your existing code)
-  // ---------------------------------------------------------------------------
-  const fetchStudentVisual = async () => {
-    appendLog("🎒 Loading student visual analytics...", "info");
+// 1. FETCH STUDENT VISUAL ANALYTICS DATA
+// ---------------------------------------------------------------------------
+const fetchStudentVisual = async () => {
+  appendLog("🎒 Loading student visual analytics...", "info");
 
-    try {
-      const response = await fetch("/api/student-visual");
+  try {
+    const response = await fetch("/api/student-visual");
 
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`HTTP ${response.status} - ${errText}`);
-      }
-
-      const json = await response.json();
-
-      if (!json.students || !Array.isArray(json.students)) {
-        appendLog("❌ Invalid data format from server.", "error");
-        return;
-      }
-
-      setStudentVisual(json.students);
-      appendLog(`✅ Loaded data for ${json.students.length} students.`, "success");
-    } catch (err) {
-      appendLog(`❌ Student visuals fetch failed: ${err.message}`, "error");
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`HTTP ${response.status} - ${errText}`);
     }
-  };
 
-  // ---------------------------------------------------------------------------
-  // 2. NEW CHART CONFIGURATION (Place this before your return statement)
-  // ---------------------------------------------------------------------------
-  const chartData = {
-    labels: studentVisual.map((s) => s.name),
-    datasets: [
-      {
-        label: "Student Risk Level",
-        // Position logic: High risk students have higher bars (90), Low risk have lower bars (30)
-        data: studentVisual.map((s) => {
-          const level = s.riskLevel?.toUpperCase();
-          if (level === "HIGH") return 90;
-          if (level === "MEDIUM") return 60;
-          return 30; // Default / Low
-        }),
-        // Color logic: Red for High, Yellow for Medium, Green for Low
-        backgroundColor: studentVisual.map((s) => {
-          const level = s.riskLevel?.toUpperCase();
-          if (level === "HIGH") return "#FF4D4D";   // Red
-          if (level === "MEDIUM") return "#FFC107"; // Yellow
-          return "#4CAF50";                         // Green
-        }),
-        borderRadius: 8,
-        barThickness: 45,
-      },
-    ],
-  };
+    const json = await response.json();
 
-  const chartOptions = {
-    responsive: true,
-    scales: {
-      y: {
-        beginAtZero: true,
-        max: 100, // Keeps the scale consistent
-        ticks: {
-          callback: (value) => {
-            if (value === 90) return "High Risk";
-            if (value === 60) return "Medium";
-            if (value === 30) return "Low Risk";
-            return "";
-          },
+    // Ensure we always set an array, even if empty, to prevent .map() crashes
+    setStudentVisual(json.students || []);
+    appendLog(`✅ Loaded data for ${(json.students || []).length} students.`, "success");
+  } catch (err) {
+    appendLog(`❌ Student visuals fetch failed: ${err.message}`, "error");
+    setStudentVisual([]); // Set to empty array on error to prevent crash
+  }
+};
+
+// ---------------------------------------------------------------------------
+// 2. SAFE CHART CONFIGURATION (Fixes the "reading map" error)
+// ---------------------------------------------------------------------------
+// We use (studentVisual || []) to ensure .map() never runs on null/undefined
+const chartData = {
+  labels: (studentVisual || []).map((s) => s.name || "Unknown"),
+  datasets: [
+    {
+      label: "Student Risk Level",
+      // High risk = 90 (top), Medium = 60, Low = 30 (bottom)
+      data: (studentVisual || []).map((s) => {
+        const level = s.riskLevel?.toUpperCase();
+        if (level === "HIGH") return 90;
+        if (level === "MEDIUM") return 60;
+        return 30; 
+      }),
+      // Red for High, Yellow for Medium, Green for Low
+      backgroundColor: (studentVisual || []).map((s) => {
+        const level = s.riskLevel?.toUpperCase();
+        if (level === "HIGH") return "#FF4D4D";   // Red
+        if (level === "MEDIUM") return "#FFC107"; // Yellow
+        return "#4CAF50";                         // Green
+      }),
+      borderRadius: 8,
+      barThickness: 45,
+    },
+  ],
+};
+
+const chartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  scales: {
+    y: {
+      beginAtZero: true,
+      max: 100,
+      ticks: {
+        callback: (value) => {
+          if (value === 90) return "High Risk";
+          if (value === 60) return "Medium";
+          if (value === 30) return "Low Risk";
+          return "";
         },
       },
     },
-    plugins: {
-      legend: { display: false }, // Hide auto-legend to keep it clean
-    },
-  };
-
+  },
+  plugins: {
+    legend: { display: false },
+  },
+};
 
   // ---------------------------------------------------------------------------
   // MOCK STUDENT DATA FOR TESTING
