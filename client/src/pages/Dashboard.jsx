@@ -481,33 +481,82 @@ const Dashboard = ({ onLogout }) => {
     appendLog(`❌ Error fetching student status: ${err.message}`, "error");
   }
 };
-  // ---------------------------------------------------------------------------
-  // FETCH STUDENT VISUAL ANALYTICS DATA
+ // ---------------------------------------------------------------------------
+  // 1. FETCH STUDENT VISUAL ANALYTICS DATA (Your existing code)
   // ---------------------------------------------------------------------------
   const fetchStudentVisual = async () => {
-  appendLog("🎒 Loading student visual analytics...", "info");
+    appendLog("🎒 Loading student visual analytics...", "info");
 
-  try {
-    const response = await fetch("/api/student-visual");
+    try {
+      const response = await fetch("/api/student-visual");
 
-    if (!response.ok) {
-      const errText = await response.text(); // ✅ see real backend error
-      throw new Error(`HTTP ${response.status} - ${errText}`);
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`HTTP ${response.status} - ${errText}`);
+      }
+
+      const json = await response.json();
+
+      if (!json.students || !Array.isArray(json.students)) {
+        appendLog("❌ Invalid data format from server.", "error");
+        return;
+      }
+
+      setStudentVisual(json.students);
+      appendLog(`✅ Loaded data for ${json.students.length} students.`, "success");
+    } catch (err) {
+      appendLog(`❌ Student visuals fetch failed: ${err.message}`, "error");
     }
+  };
 
-    const json = await response.json();
+  // ---------------------------------------------------------------------------
+  // 2. NEW CHART CONFIGURATION (Place this before your return statement)
+  // ---------------------------------------------------------------------------
+  const chartData = {
+    labels: studentVisual.map((s) => s.name),
+    datasets: [
+      {
+        label: "Student Risk Level",
+        // Position logic: High risk students have higher bars (90), Low risk have lower bars (30)
+        data: studentVisual.map((s) => {
+          const level = s.riskLevel?.toUpperCase();
+          if (level === "HIGH") return 90;
+          if (level === "MEDIUM") return 60;
+          return 30; // Default / Low
+        }),
+        // Color logic: Red for High, Yellow for Medium, Green for Low
+        backgroundColor: studentVisual.map((s) => {
+          const level = s.riskLevel?.toUpperCase();
+          if (level === "HIGH") return "#FF4D4D";   // Red
+          if (level === "MEDIUM") return "#FFC107"; // Yellow
+          return "#4CAF50";                         // Green
+        }),
+        borderRadius: 8,
+        barThickness: 45,
+      },
+    ],
+  };
 
-    if (!json.students || !Array.isArray(json.students)) {
-      appendLog("❌ Invalid data format from server.", "error");
-      return;
-    }
-
-    setStudentVisual(json.students);
-    appendLog(`✅ Loaded data for ${json.students.length} students.`, "success");
-  } catch (err) {
-    appendLog(`❌ Student visuals fetch failed: ${err.message}`, "error");
-  }
-};
+  const chartOptions = {
+    responsive: true,
+    scales: {
+      y: {
+        beginAtZero: true,
+        max: 100, // Keeps the scale consistent
+        ticks: {
+          callback: (value) => {
+            if (value === 90) return "High Risk";
+            if (value === 60) return "Medium";
+            if (value === 30) return "Low Risk";
+            return "";
+          },
+        },
+      },
+    },
+    plugins: {
+      legend: { display: false }, // Hide auto-legend to keep it clean
+    },
+  };
 
 
   // ---------------------------------------------------------------------------
