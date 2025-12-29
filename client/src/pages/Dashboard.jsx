@@ -481,80 +481,69 @@ const Dashboard = ({ onLogout }) => {
     appendLog(`❌ Error fetching student status: ${err.message}`, "error");
   }
 };
- // ---------------------------------------------------------------------------
-// 1. FETCH STUDENT VISUAL ANALYTICS DATA
+// ---------------------------------------------------------------------------
+// FETCH STUDENT VISUAL ANALYTICS DATA
 // ---------------------------------------------------------------------------
 const fetchStudentVisual = async () => {
   appendLog("🎒 Loading student visual analytics...", "info");
-
   try {
     const response = await fetch("/api/student-visual");
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`HTTP ${response.status} - ${errText}`);
-    }
-
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const json = await response.json();
-
-    // Ensure we always set an array, even if empty, to prevent .map() crashes
-    setStudentVisual(json.students || []);
+    
+    // Safety check: ensure students is always an array
+    setStudentVisual(json.students || []); 
     appendLog(`✅ Loaded data for ${(json.students || []).length} students.`, "success");
   } catch (err) {
     appendLog(`❌ Student visuals fetch failed: ${err.message}`, "error");
-    setStudentVisual([]); // Set to empty array on error to prevent crash
+    setStudentVisual([]); // Prevents mapping crash on error
   }
 };
 
 // ---------------------------------------------------------------------------
-// 2. SAFE CHART CONFIGURATION (Fixes the "reading map" error)
+// CHART DATA & COLORS (Matching your 3rd image reference)
 // ---------------------------------------------------------------------------
-// We use (studentVisual || []) to ensure .map() never runs on null/undefined
 const chartData = {
-  labels: (studentVisual || []).map((s) => s.name || "Unknown"),
+  // Safe mapping using empty array fallback
+  labels: (studentVisual || []).map(s => s.name),
   datasets: [
     {
-      label: "Student Risk Level",
-      // High risk = 90 (top), Medium = 60, Low = 30 (bottom)
-      data: (studentVisual || []).map((s) => {
-        const level = s.riskLevel?.toUpperCase();
-        if (level === "HIGH") return 90;
-        if (level === "MEDIUM") return 60;
-        return 30; 
+      label: 'Risk Level Assessment',
+      // High risk students will show at the top (90), Low at the bottom (30)
+      data: (studentVisual || []).map(s => s.visualHeight || 30), 
+      
+      // COLORS: Red for High, Yellow for Medium, Green for Low
+      backgroundColor: (studentVisual || []).map(s => {
+        const level = s.riskLevel?.toLowerCase();
+        if (level === 'high') return '#FF4D4D';   // Bright Red
+        if (level === 'medium') return '#FFB400'; // Amber/Yellow
+        return '#2ECC71';                         // Emerald Green
       }),
-      // Red for High, Yellow for Medium, Green for Low
-      backgroundColor: (studentVisual || []).map((s) => {
-        const level = s.riskLevel?.toUpperCase();
-        if (level === "HIGH") return "#FF4D4D";   // Red
-        if (level === "MEDIUM") return "#FFC107"; // Yellow
-        return "#4CAF50";                         // Green
-      }),
-      borderRadius: 8,
-      barThickness: 45,
+      borderRadius: 5,
+      barThickness: 40,
     },
   ],
 };
 
 const chartOptions = {
   responsive: true,
-  maintainAspectRatio: false,
   scales: {
     y: {
       beginAtZero: true,
-      max: 100,
+      max: 100, // Scale 0-100
       ticks: {
         callback: (value) => {
-          if (value === 90) return "High Risk";
-          if (value === 60) return "Medium";
-          if (value === 30) return "Low Risk";
-          return "";
-        },
-      },
-    },
+          if (value === 90) return '🔴 HIGH';
+          if (value === 60) return '🟡 MED';
+          if (value === 30) return '🟢 LOW';
+          return '';
+        }
+      }
+    }
   },
   plugins: {
-    legend: { display: false },
-  },
+    legend: { display: false } // Custom colors handled per-bar
+  }
 };
 
   // ---------------------------------------------------------------------------
