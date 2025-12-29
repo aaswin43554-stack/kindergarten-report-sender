@@ -59,6 +59,24 @@ const normalizeRisk = (s) => {
 
 const riskOrder = { HIGH: 0, MEDIUM: 1, LOW: 2, UNKNOWN: 9 };
 
+// =======================================================
+// ✅ RISK NORMALIZER FOR VISUAL ROUTES (Low/Medium/High)
+// (This fixes: "normalizeRiskLevel is not defined")
+// =======================================================
+const normalizeRiskLevel = (v) => {
+  const s = String(v || "").trim().toLowerCase();
+  if (s.includes("high")) return "High";
+  if (s.includes("medium") || s.includes("med")) return "Medium";
+  if (s.includes("low") || s.includes("normal")) return "Low";
+  return "Low"; // default
+};
+
+const riskToScore = (level) => {
+  if (level === "High") return 3;
+  if (level === "Medium") return 2;
+  return 1; // Low
+};
+
 // ✅ this is required because you call buildResponse later
 const buildResponse = (students) => {
   const riskCounts = { HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0 };
@@ -127,170 +145,165 @@ app.get("/student-status", async (req, res) => {
       JSON.stringify(raw);
 
     const text = String(analysisText || "")
-  .replace(/\r\n/g, "\n")
-  .trim();
+      .replace(/\r\n/g, "\n")
+      .trim();
 
-// ✅ Better splitting: split by numbered blocks on NEW LINES too
-const studentBlocks = text
-  .split(/\n(?=\s*\d+\.\s+)/g)
-  .map((s) => s.trim())
-  .filter(Boolean);
+    // ✅ Better splitting: split by numbered blocks on NEW LINES too
+    const studentBlocks = text
+      .split(/\n(?=\s*\d+\.\s+)/g)
+      .map((s) => s.trim())
+      .filter(Boolean);
 
-// ✅ Extract bullets better (handles •, -, 1), 1., newlines)
-const splitBullets = (s) =>
-  String(s || "")
-    .replace(/\r\n/g, "\n")
-    .split(/\n|•|- |\u2022/g)
-    .map((x) => x.trim())
-    .filter((x) => x && x.length > 2)
-    .slice(0, 10);
-
-// ✅ Accept MANY header formats
-// Examples handled:
-// "1. Kamesh S - HIGH RISK"
-// "1. Kamesh S — HIGH"
-// "1. Kamesh S - High Risk"
-// "1. Kamesh S - MEDIUM"
-// "1. Kamesh S - LOW"
-const parseHeader = (block) => {
-  const headerPatterns = [
-    /^\s*\d+\.\s*([^\n—-]+?)\s*(?:—|-)\s*(HIGH|MEDIUM|LOW)\s*(?:RISK)?/im,
-    /Name\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/im,
-    /Student\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/im,
-  ];
-
-  for (const re of headerPatterns) {
-    const m = block.match(re); // Corrected from 'b' to 'block'
-    if (m) {
-      return { 
-        name: m[1].trim(), 
-        risk_level: normalizeRisk(m[2]) 
-      };
-    }
-  }
-  return null;
-};
-
-// ✅ Extract Reasons + Recommendations (supports ":" or "-" and multiline)
-const parseSection = (block, label) => {
-  const re = new RegExp(
-    `${label}\\s*[:\\-]\\s*([\\s\\S]*?)(?=\\n\\s*(Reasons|Recommendations|Observations|Notes|General Notes)\\s*[:\\-]|$)`,
-    "i"
-  );
-  const m = block.match(re);
-  return m?.[1]?.trim() || "";
-};
-
-// ✅ IMPROVED PARSER FOR REASONS AND RECOMMENDATIONS
-let students = studentBlocks
-  .map((block, idx) => {
-    const b = String(block || "").trim();
-    if (!b) return null;
-
-    // ✅ Stronger header detection (supports "-", "—", "HIGH", "HIGH RISK")
-    const headerMatch =
-  b.match(/^\s*\d+[.)]\s*([^\n—-]+?)\s*(?:—|-)\s*(HIGH|MEDIUM|LOW)/i) ||   // 1) Name - HIGH
-  b.match(/^\s*\d+\.\s*([^\n—-]+?)\s*(?:—|-)\s*(HIGH|MEDIUM|LOW)(?:\s*RISK)?/i) || // 1. Name - HIGH RISK
-  b.match(/^\s*([^\n—-]+?)\s*(?:—|-)\s*(HIGH|MEDIUM|LOW)(?:\s*RISK)?/i) || // Name - HIGH
-  b.match(/Name\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/i) || // Name: X ... Risk: HIGH
-  b.match(/Student\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/i);  // Student: X ... Risk: HIGH
-
-    // ✅ If no header → DO NOT create "Student 1"
-    if (!headerMatch) return null;
-
-    const name = headerMatch[1].trim();
-    const risk_level = normalizeRisk(headerMatch[2]);
-
-    // ✅ Extract sections (Reasons/Recommendations) robustly
-    const getSection = (text, labels) => {
-      const labelGroup = labels.join("|");
-      const stopGroup =
-        "(Reasons?|Concerns?|Challenges?|Recommendations?|Guidance|Next Steps?|Notes?|General Notes)";
-      const re = new RegExp(
-        `(?:^|\\n)\\s*(${labelGroup})\\s*[:\\-—]\\s*([\\s\\S]*?)(?=(?:\\n\\s*${stopGroup}\\s*[:\\-—])|$)`,
-        "i"
-      );
-      const m = text.match(re);
-      return (m?.[2] || "").trim();
-    };
-
+    // ✅ Extract bullets better (handles •, -, 1), 1., newlines)
     const splitBullets = (s) =>
       String(s || "")
         .replace(/\r\n/g, "\n")
-        .split(/\n|•|\u2022|-\s+|\*\s+/g)
+        .split(/\n|•|- |\u2022/g)
         .map((x) => x.trim())
         .filter((x) => x && x.length > 2)
         .slice(0, 10);
 
-    const reasonsRaw = getSection(b, ["Reasons?", "Concerns?", "Challenges?", "Specific Concerns?"]);
-    const recRaw = getSection(b, ["Recommendations?", "Guidance", "Next Steps?"]);
+    // ✅ Accept MANY header formats
+    // Examples handled:
+    // "1. Kamesh S - HIGH RISK"
+    // "1. Kamesh S — HIGH"
+    // "1. Kamesh S - High Risk"
+    // "1. Kamesh S - MEDIUM"
+    // "1. Kamesh S - LOW"
+    const parseHeader = (block) => {
+      const headerPatterns = [
+        /^\s*\d+\.\s*([^\n—-]+?)\s*(?:—|-)\s*(HIGH|MEDIUM|LOW)\s*(?:RISK)?/im,
+        /Name\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/im,
+        /Student\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/im,
+      ];
 
-    const reasons = splitBullets(reasonsRaw);
-    const recommendations = splitBullets(recRaw);
-
-    const risk_score =
-      risk_level === "HIGH" ? 80 :
-      risk_level === "MEDIUM" ? 55 :
-      risk_level === "LOW" ? 25 : 0;
-
-    return {
-      id: String(idx),
-      name,
-      risk_level,
-      risk_score,
-      reasons,
-      recommendations
+      for (const re of headerPatterns) {
+        const m = block.match(re);
+        if (m) {
+          return {
+            name: m[1].trim(),
+            risk_level: normalizeRisk(m[2]),
+          };
+        }
+      }
+      return null;
     };
-  })
-  .filter(Boolean);
 
-// ✅ If nothing parsed, return raw text so you can SEE what webhook sent
-if (!students.length) {
-  return res.json({
-    summary: "No students parsed from webhook text.",
-    message: "⚠️ Parser could not detect student blocks. Check rawText.",
-    students: [],
-    rawText,
-  });
-}
-students.sort((a, b) => {
-  const ao = riskOrder[a.risk_level] ?? 9;
-  const bo = riskOrder[b.risk_level] ?? 9;
-  if (ao !== bo) return ao - bo;
-  return (b.risk_score ?? 0) - (a.risk_score ?? 0);
-});
-function normalizeRiskLevel(v) {
-  const s = String(v || "").trim().toLowerCase();
-  if (s.includes("high")) return "High";
-  if (s.includes("medium") || s.includes("med")) return "Medium";
-  if (s.includes("low") || s.includes("normal")) return "Low";
-  return "Low";
-}
+    // ✅ Extract Reasons + Recommendations (supports ":" or "-" and multiline)
+    const parseSection = (block, label) => {
+      const re = new RegExp(
+        `${label}\\s*[:\\-]\\s*([\\s\\S]*?)(?=\\n\\s*(Reasons|Recommendations|Observations|Notes|General Notes)\\s*[:\\-]|$)`,
+        "i"
+      );
+      const m = block.match(re);
+      return m?.[1]?.trim() || "";
+    };
 
-function riskToScore(level) {
-  if (level === "High") return 3;
-  if (level === "Medium") return 2;
-  return 1; // Low
-}
+    // ✅ IMPROVED PARSER FOR REASONS AND RECOMMENDATIONS
+    let students = studentBlocks
+      .map((block, idx) => {
+        const b = String(block || "").trim();
+        if (!b) return null;
 
+        // ✅ Stronger header detection (supports "-", "—", "HIGH", "HIGH RISK")
+        const headerMatch =
+          b.match(/^\s*\d+[.)]\s*([^\n—-]+?)\s*(?:—|-)\s*(HIGH|MEDIUM|LOW)/i) ||
+          b.match(/^\s*\d+\.\s*([^\n—-]+?)\s*(?:—|-)\s*(HIGH|MEDIUM|LOW)(?:\s*RISK)?/i) ||
+          b.match(/^\s*([^\n—-]+?)\s*(?:—|-)\s*(HIGH|MEDIUM|LOW)(?:\s*RISK)?/i) ||
+          b.match(/Name\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/i) ||
+          b.match(/Student\s*:\s*([^\n]+)[\s\S]*?(?:Risk|Risk Level)\s*:\s*(HIGH|MEDIUM|LOW)/i);
 
-const message = [
-  "📌 Student Risk Report (Ordered)",
-  "",
-  ...students.map((s, i) => {
-    const reasonsText = s.reasons.length ? s.reasons.join(", ") : "N/A";
-    const recText = s.recommendations.length ? s.recommendations.join(", ") : "N/A";
-    return `${i + 1}. ${s.name} — ${s.risk_level} (Score: ${s.risk_score})\n   Reasons: ${reasonsText}\n   Recommendations: ${recText}`;
-  }),
-].join("\n");
+        // ✅ If no header → DO NOT create "Student 1"
+        if (!headerMatch) return null;
 
-return res.json({
-  summary: "Student risk assessment generated.",
-  message,
-  students,
-  rawText,
-});
+        const name = headerMatch[1].trim();
+        const risk_level = normalizeRisk(headerMatch[2]);
 
+        // ✅ Extract sections (Reasons/Recommendations) robustly
+        const getSection = (text, labels) => {
+          const labelGroup = labels.join("|");
+          const stopGroup =
+            "(Reasons?|Concerns?|Challenges?|Recommendations?|Guidance|Next Steps?|Notes?|General Notes)";
+          const re = new RegExp(
+            `(?:^|\\n)\\s*(${labelGroup})\\s*[:\\-—]\\s*([\\s\\S]*?)(?=(?:\\n\\s*${stopGroup}\\s*[:\\-—])|$)`,
+            "i"
+          );
+          const m = text.match(re);
+          return (m?.[2] || "").trim();
+        };
+
+        const splitBullets = (s) =>
+          String(s || "")
+            .replace(/\r\n/g, "\n")
+            .split(/\n|•|\u2022|-\s+|\*\s+/g)
+            .map((x) => x.trim())
+            .filter((x) => x && x.length > 2)
+            .slice(0, 10);
+
+        const reasonsRaw = getSection(b, [
+          "Reasons?",
+          "Concerns?",
+          "Challenges?",
+          "Specific Concerns?",
+        ]);
+        const recRaw = getSection(b, ["Recommendations?", "Guidance", "Next Steps?"]);
+
+        const reasons = splitBullets(reasonsRaw);
+        const recommendations = splitBullets(recRaw);
+
+        const risk_score =
+          risk_level === "HIGH"
+            ? 80
+            : risk_level === "MEDIUM"
+            ? 55
+            : risk_level === "LOW"
+            ? 25
+            : 0;
+
+        return {
+          id: String(idx),
+          name,
+          risk_level,
+          risk_score,
+          reasons,
+          recommendations,
+        };
+      })
+      .filter(Boolean);
+
+    // ✅ If nothing parsed, return raw text so you can SEE what webhook sent
+    if (!students.length) {
+      return res.json({
+        summary: "No students parsed from webhook text.",
+        message: "⚠️ Parser could not detect student blocks. Check rawText.",
+        students: [],
+        rawText,
+      });
+    }
+
+    students.sort((a, b) => {
+      const ao = riskOrder[a.risk_level] ?? 9;
+      const bo = riskOrder[b.risk_level] ?? 9;
+      if (ao !== bo) return ao - bo;
+      return (b.risk_score ?? 0) - (a.risk_score ?? 0);
+    });
+
+    const message = [
+      "📌 Student Risk Report (Ordered)",
+      "",
+      ...students.map((s, i) => {
+        const reasonsText = s.reasons.length ? s.reasons.join(", ") : "N/A";
+        const recText = s.recommendations.length ? s.recommendations.join(", ") : "N/A";
+        return `${i + 1}. ${s.name} — ${s.risk_level} (Score: ${s.risk_score})\n   Reasons: ${reasonsText}\n   Recommendations: ${recText}`;
+      }),
+    ].join("\n");
+
+    return res.json({
+      summary: "Student risk assessment generated.",
+      message,
+      students,
+      rawText,
+    });
   } catch (err) {
     console.error("❌ Student status error:", err);
     return res.status(500).json({
@@ -306,13 +319,15 @@ return res.json({
 // =======================================================
 app.get("/api/student-visual", async (req, res) => {
   try {
-    const webhook = process.env.N8N_STUDENT_VISUAL_URL || "https://myaidesigntools.app.n8n.cloud/webhook/MODULE_2_VISUAL";
-    
+    const webhook =
+      process.env.N8N_STUDENT_VISUAL_URL ||
+      "https://myaidesigntools.app.n8n.cloud/webhook/MODULE_2_VISUAL";
+
     console.log("🎒 Fetching visual data from:", webhook);
 
     const response = await fetch(webhook, {
       method: "GET",
-      headers: { "Accept": "application/json" },
+      headers: { Accept: "application/json" },
     });
 
     const bodyText = await response.text();
@@ -322,7 +337,7 @@ app.get("/api/student-visual", async (req, res) => {
       return res.status(response.status).json({
         error: `External Service Error: ${response.status}`,
         message: "Your API or Webhook might be out of credits or offline.",
-        rawPreview: bodyText.slice(0, 200)
+        rawPreview: bodyText.slice(0, 200),
       });
     }
 
@@ -334,7 +349,7 @@ app.get("/api/student-visual", async (req, res) => {
       return res.status(500).json({
         error: "Webhook returned non-JSON text",
         details: "The server sent text instead of a data object. Check if your top-up is active.",
-        rawPreview: bodyText.slice(0, 300)
+        rawPreview: bodyText.slice(0, 300),
       });
     }
 
@@ -342,36 +357,39 @@ app.get("/api/student-visual", async (req, res) => {
     let data = raw;
     if (Array.isArray(data) && data.length === 1) data = data[0];
     if (data?.output && typeof data.output === "string") {
-      try { data = JSON.parse(data.output); } catch (e) { /* use as is */ }
+      try {
+        data = JSON.parse(data.output);
+      } catch (e) {
+        /* use as is */
+      }
     }
 
     const rawStudents = data?.students || (Array.isArray(data) ? data : []);
 
     const normalized = rawStudents.map((s, idx) => {
-  const riskLevel = normalizeRiskLevel(s.riskLevel || s.risk_level || s.level);
+      const riskLevel = normalizeRiskLevel(s.riskLevel || s.risk_level || s.level);
 
-  return {
-    id: s.id ?? String(idx),
-    name: s.name || s.studentName || "Unknown Student",
-    avgAppetite: Number(s.avgAppetite ?? s.appetite ?? 0),
-    avgSleep: Number(s.avgSleep ?? s.sleep ?? 0),
-    avgBehaviour: Number(s.avgBehaviour ?? s.behaviour ?? 0),
-    avgMood: Number(s.avgMood ?? s.mood ?? 0),
+      return {
+        id: s.id ?? String(idx),
+        name: s.name || s.studentName || "Unknown Student",
+        avgAppetite: Number(s.avgAppetite ?? s.appetite ?? 0),
+        avgSleep: Number(s.avgSleep ?? s.sleep ?? 0),
+        avgBehaviour: Number(s.avgBehaviour ?? s.behaviour ?? 0),
+        avgMood: Number(s.avgMood ?? s.mood ?? 0),
 
-    // ✅ consistent + used for UI
-    riskLevel,
-    riskScore: riskToScore(riskLevel), // ✅ 1=Low, 2=Medium, 3=High
-  };
-});
-
+        // ✅ consistent + used for UI
+        riskLevel,
+        riskScore: riskToScore(riskLevel), // ✅ 1=Low, 2=Medium, 3=High
+      };
+    });
 
     return res.json({ students: normalized });
-
   } catch (err) {
     console.error("❌ Critical error:", err);
     return res.status(500).json({ error: "Server Error", details: err.message });
   }
 });
+
 // =======================================================
 // ✅ PRESERVED: your 2nd student visual route (renamed to avoid override)
 // =======================================================
@@ -395,20 +413,19 @@ app.get("/api/student-visual-alt", async (req, res) => {
     const students = Array.isArray(data?.students) ? data.students : [];
 
     const normalized = students.map((s) => {
-  const riskLevel = normalizeRiskLevel(s.riskLevel || s.risk_level || s.level);
+      const riskLevel = normalizeRiskLevel(s.riskLevel || s.risk_level || s.level);
 
-  return {
-    ...s,
-    avgAppetite: Number(s.avgAppetite) || 0,
-    avgSleep: Number(s.avgSleep) || 0,
-    avgBehaviour: Number(s.avgBehaviour) || 0,
-    avgMood: Number(s.avgMood) || 0,
+      return {
+        ...s,
+        avgAppetite: Number(s.avgAppetite) || 0,
+        avgSleep: Number(s.avgSleep) || 0,
+        avgBehaviour: Number(s.avgBehaviour) || 0,
+        avgMood: Number(s.avgMood) || 0,
 
-    riskLevel,
-    riskScore: riskToScore(riskLevel),
-  };
-});
-
+        riskLevel,
+        riskScore: riskToScore(riskLevel),
+      };
+    });
 
     return res.json({ students: normalized });
   } catch (err) {
@@ -433,9 +450,7 @@ app.get("/student-status-full", async (req, res) => {
           risk_score: Number(s.risk_score ?? s.score ?? 0) || 0,
           reasons: Array.isArray(s.reasons) ? s.reasons : [],
           observations: Array.isArray(s.observations) ? s.observations : [],
-          recommendations: Array.isArray(s.recommendations)
-            ? s.recommendations
-            : [],
+          recommendations: Array.isArray(s.recommendations) ? s.recommendations : [],
         }));
 
         return students;
@@ -453,37 +468,37 @@ app.get("/student-status-full", async (req, res) => {
         .replace(/\r\n/g, "\n")
         .replace(/[ \t]+/g, " ")
         .trim();
-      
-       // ✅ Split into blocks using MULTIPLE patterns:
-// 1) "1. " numbered
-// 2) "Student:" sections
-// 3) "Name:" sections
-// 4) fallback: split by blank lines
-let studentBlocks = [];
 
-if (/\n\s*\d+\.\s+/.test(text)) {
-  studentBlocks = text.split(/\n(?=\s*\d+\.\s+)/g);      // 1. Name
-} else if (/\n\s*\d+\)\s+/.test(text)) {
-  studentBlocks = text.split(/\n(?=\s*\d+\)\s+)/g);      // 1) Name
-} else if (/Student\s*:/i.test(text)) {
-  studentBlocks = text.split(/(?=Student\s*:)/gi);       // Student:
-} else if (/Name\s*:/i.test(text)) {
-  studentBlocks = text.split(/(?=Name\s*:)/gi);          // Name:
-} else if (/\n\s*\n/.test(text)) {
-  studentBlocks = text.split(/\n\s*\n+/g);               // blank lines
-} else {
-  studentBlocks = [text];                                // fallback
-}
+      // ✅ Split into blocks using MULTIPLE patterns:
+      // 1) "1. " numbered
+      // 2) "Student:" sections
+      // 3) "Name:" sections
+      // 4) fallback: split by blank lines
+      let studentBlocks = [];
 
-studentBlocks = studentBlocks.map((s) => s.trim()).filter(Boolean);
+      if (/\n\s*\d+\.\s+/.test(text)) {
+        studentBlocks = text.split(/\n(?=\s*\d+\.\s+)/g); // 1. Name
+      } else if (/\n\s*\d+\)\s+/.test(text)) {
+        studentBlocks = text.split(/\n(?=\s*\d+\)\s+)/g); // 1) Name
+      } else if (/Student\s*:/i.test(text)) {
+        studentBlocks = text.split(/(?=Student\s*:)/gi); // Student:
+      } else if (/Name\s*:/i.test(text)) {
+        studentBlocks = text.split(/(?=Name\s*:)/gi); // Name:
+      } else if (/\n\s*\n/.test(text)) {
+        studentBlocks = text.split(/\n\s*\n+/g); // blank lines
+      } else {
+        studentBlocks = [text]; // fallback
+      }
+
+      studentBlocks = studentBlocks.map((s) => s.trim()).filter(Boolean);
 
       const splitBullets = (s) =>
-  String(s || "")
-    .replace(/\r\n/g, "\n")
-    .split(/\n|•|\u2022|-\s+|\*\s+/g)
-    .map((x) => x.trim())
-    .filter((x) => x && x.length > 2)
-    .slice(0, 10);
+        String(s || "")
+          .replace(/\r\n/g, "\n")
+          .split(/\n|•|\u2022|-\s+|\*\s+/g)
+          .map((x) => x.trim())
+          .filter((x) => x && x.length > 2)
+          .slice(0, 10);
 
       const students = studentBlocks
         .map((b, idx) => {
@@ -582,9 +597,8 @@ studentBlocks = studentBlocks.map((s) => s.trim()).filter(Boolean);
 
     const rawText = await response.text();
     console.log("----- STUDENT STATUS RAW START -----");
-console.log(rawText);
-console.log("----- STUDENT STATUS RAW END -----");
-
+    console.log(rawText);
+    console.log("----- STUDENT STATUS RAW END -----");
 
     let raw;
     try {
@@ -640,7 +654,8 @@ app.get("/send", async (req, res) => {
     sendLog(`✅ Found ${rows.length} rows. Preparing messages...`);
 
     for (const row of rows) {
-      const [studentName, appetite, sleeping, behaviour, mood, note, phone, customMessage] = row;
+      const [studentName, appetite, sleeping, behaviour, mood, note, phone, customMessage] =
+        row;
 
       if (!phone) {
         sendLog(`⚠️ Missing phone number for ${studentName || "Unknown"}`);
@@ -930,14 +945,22 @@ app.get("/api/student-visual-v2", async (req, res) => {
       return res.json({ students: [] });
     }
 
-    const students = data.students.map((s) => ({
-      ...s,
-      avgAppetite: Number(s.avgAppetite) || 0,
-      avgSleep: Number(s.avgSleep) || 0,
-      avgBehaviour: Number(s.avgBehaviour) || 0,
-      avgMood: Number(s.avgMood) || 0,
-      riskLevel: s.riskLevel || s.risk_level || s.risk || "Low",
-    }));
+    const students = data.students.map((s, idx) => {
+      const riskLevel = normalizeRiskLevel(
+        s.riskLevel || s.risk_level || s.risk || s.level
+      );
+
+      return {
+        ...s,
+        id: s.id ?? String(idx),
+        avgAppetite: Number(s.avgAppetite) || 0,
+        avgSleep: Number(s.avgSleep) || 0,
+        avgBehaviour: Number(s.avgBehaviour) || 0,
+        avgMood: Number(s.avgMood) || 0,
+        riskLevel,
+        riskScore: riskToScore(riskLevel),
+      };
+    });
 
     return res.json({ students });
   } catch (err) {
