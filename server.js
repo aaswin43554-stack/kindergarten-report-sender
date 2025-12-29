@@ -333,22 +333,15 @@ app.get("/api/student-visual", async (req, res) => {
 
     const rawStudents = data?.students || (Array.isArray(data) ? data : []);
 
-    // Update the .map section inside your server-side route
-const normalized = rawStudents.map((s, idx) => {
-  const risk = (s.riskLevel || s.risk_level || "Low").toLowerCase();
-  
-  // Logic for the height: High is physically taller (90), Low is shorter (30)
-  let heightValue = 30; 
-  if (risk === "high") heightValue = 90;
-  else if (risk === "medium") heightValue = 60;
-
-  return {
-    id: s.id ?? String(idx),
-    name: s.name || s.studentName || "Unknown Student",
-    riskLevel: risk,
-    visualHeight: heightValue // This controls the bar position
-  };
-});
+    const normalized = rawStudents.map((s, idx) => ({
+      id: s.id ?? String(idx),
+      name: s.name || s.studentName || "Unknown Student",
+      avgAppetite: Number(s.avgAppetite ?? s.appetite ?? 0),
+      avgSleep: Number(s.avgSleep ?? s.sleep ?? 0),
+      avgBehaviour: Number(s.avgBehaviour ?? s.behaviour ?? 0),
+      avgMood: Number(s.avgMood ?? s.mood ?? 0),
+      riskLevel: s.riskLevel || s.risk_level || "Low",
+    }));
 
     return res.json({ students: normalized });
 

@@ -481,70 +481,34 @@ const Dashboard = ({ onLogout }) => {
     appendLog(`❌ Error fetching student status: ${err.message}`, "error");
   }
 };
-// ---------------------------------------------------------------------------
-// FETCH STUDENT VISUAL ANALYTICS DATA
-// ---------------------------------------------------------------------------
-const fetchStudentVisual = async () => {
+  // ---------------------------------------------------------------------------
+  // FETCH STUDENT VISUAL ANALYTICS DATA
+  // ---------------------------------------------------------------------------
+  const fetchStudentVisual = async () => {
   appendLog("🎒 Loading student visual analytics...", "info");
+
   try {
     const response = await fetch("/api/student-visual");
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    if (!response.ok) {
+      const errText = await response.text(); // ✅ see real backend error
+      throw new Error(`HTTP ${response.status} - ${errText}`);
+    }
+
     const json = await response.json();
-    
-    // Safety check: ensure students is always an array
-    setStudentVisual(json.students || []); 
-    appendLog(`✅ Loaded data for ${(json.students || []).length} students.`, "success");
+
+    if (!json.students || !Array.isArray(json.students)) {
+      appendLog("❌ Invalid data format from server.", "error");
+      return;
+    }
+
+    setStudentVisual(json.students);
+    appendLog(`✅ Loaded data for ${json.students.length} students.`, "success");
   } catch (err) {
     appendLog(`❌ Student visuals fetch failed: ${err.message}`, "error");
-    setStudentVisual([]); // Prevents mapping crash on error
   }
 };
 
-// ---------------------------------------------------------------------------
-// CHART DATA & COLORS (Matching your 3rd image reference)
-// ---------------------------------------------------------------------------
-const chartData = {
-  // Safe mapping using empty array fallback
-  labels: (studentVisual || []).map(s => s.name),
-  datasets: [
-    {
-      label: 'Risk Level Assessment',
-      // High risk students will show at the top (90), Low at the bottom (30)
-      data: (studentVisual || []).map(s => s.visualHeight || 30), 
-      
-      // COLORS: Red for High, Yellow for Medium, Green for Low
-      backgroundColor: (studentVisual || []).map(s => {
-        const level = s.riskLevel?.toLowerCase();
-        if (level === 'high') return '#FF4D4D';   // Bright Red
-        if (level === 'medium') return '#FFB400'; // Amber/Yellow
-        return '#2ECC71';                         // Emerald Green
-      }),
-      borderRadius: 5,
-      barThickness: 40,
-    },
-  ],
-};
-
-const chartOptions = {
-  responsive: true,
-  scales: {
-    y: {
-      beginAtZero: true,
-      max: 100, // Scale 0-100
-      ticks: {
-        callback: (value) => {
-          if (value === 90) return '🔴 HIGH';
-          if (value === 60) return '🟡 MED';
-          if (value === 30) return '🟢 LOW';
-          return '';
-        }
-      }
-    }
-  },
-  plugins: {
-    legend: { display: false } // Custom colors handled per-bar
-  }
-};
 
   // ---------------------------------------------------------------------------
   // MOCK STUDENT DATA FOR TESTING
