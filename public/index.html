@@ -24,8 +24,9 @@
       font-size: 16px;
     }
 
+    /* ✅ Telegram Button Style */
     button {
-      background: #25D366;
+      background: #229ED9; /* Telegram blue */
       color: white;
       border: none;
       padding: 14px 28px;
@@ -37,7 +38,7 @@
     }
 
     button:hover {
-      background: #1da851;
+      background: #1c86ba;
       transform: scale(1.05);
     }
 
@@ -73,13 +74,13 @@
 </head>
 <body>
   <h1>📢 Kindergarten Daily Report Sender</h1>
-  <p class="subtitle">Send today’s WhatsApp updates to all parents — directly from Google Sheets 💬</p>
+  <p class="subtitle">Send today’s Telegram updates to all parents — directly from Google Sheets ✈️</p>
 
-  <button id="sendBtn" onclick="sendMessages()">🚀 Send WhatsApp Messages</button>
+  <button id="sendBtn" onclick="sendMessages()">📨 Send Telegram Messages</button>
 
   <div id="status"></div>
 
-  <footer>© 2025 Little Learners | Powered by Twilio + Google Sheets</footer>
+  <footer>© 2025 Little Learners | Powered by Telegram + Google Sheets</footer>
 
   <script>
     async function sendMessages() {
@@ -88,7 +89,8 @@
       statusBox.innerHTML = "⏳ Sending messages...<br>";
 
       try {
-        const res = await fetch('/send', { method: 'POST' });
+        // ✅ Server has GET /send (SSE supported). For simple HTML we just call GET.
+        const res = await fetch('/send', { method: 'GET' });
         const text = await res.text();
 
         if (res.ok) {
