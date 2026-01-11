@@ -114,6 +114,36 @@ const buildResponse = (students) => {
 };
 
 // =======================================================
+// ✅ TELEGRAM WEBHOOK CONFIGURATION (ADDED)
+// Only used for /send and /send-menu; rest of code unchanged.
+// =======================================================
+const TELEGRAM_WEBHOOK_URL =
+  process.env.TELEGRAM_WEBHOOK_URL ||
+  "https://myaidesigntools.app.n8n.cloud/webhook/telegram_trigger";
+
+/**
+ * Send Telegram message through your n8n webhook.
+ * Expects n8n to accept JSON: { chat_id: "...", text: "..." }
+ */
+const sendTelegramViaWebhook = async ({ chatId, text }) => {
+  const response = await fetch(TELEGRAM_WEBHOOK_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`Telegram webhook failed: ${response.status} ${body}`);
+  }
+
+  return true;
+};
+
+// =======================================================
 // ROUTE: STUDENT STATUS (TEXT ONLY -> ordered message)
 // =======================================================
 app.get("/student-status", async (req, res) => {
@@ -624,6 +654,7 @@ app.get("/student-status-full", async (req, res) => {
 
 // =======================================================
 // ROUTE: SEND DAILY REPORTS (SSE)
+// ✅ CHANGED ONLY WHATSAPP SENDING -> TELEGRAM WEBHOOK
 // =======================================================
 app.get("/send", async (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
@@ -654,11 +685,15 @@ app.get("/send", async (req, res) => {
     sendLog(`✅ Found ${rows.length} rows. Preparing messages...`);
 
     for (const row of rows) {
+      // NOTE: we keep the same variable names to avoid changing structure
+      // phone column now should contain Telegram chat_id
       const [studentName, appetite, sleeping, behaviour, mood, note, phone, customMessage] =
         row;
 
-      if (!phone) {
-        sendLog(`⚠️ Missing phone number for ${studentName || "Unknown"}`);
+      const chatId = phone; // ✅ same column, now treated as Telegram chat_id
+
+      if (!chatId) {
+        sendLog(`⚠️ Missing Telegram chat_id for ${studentName || "Unknown"}`);
         continue;
       }
 
@@ -666,18 +701,17 @@ app.get("/send", async (req, res) => {
         customMessage ||
         `🌞 Good evening!\n\n👧 Student: ${studentName}\n🍽 Appetite: ${appetite}\n💤 Sleeping: ${sleeping}\n😊 Behaviour: ${behaviour}\n🎭 Mood: ${mood}\n📝 Note: ${note}\n\nYour child had a wonderful day at school! 💖`;
 
-      sendLog(`➡️ Sending message to ${phone}...`);
+      sendLog(`➡️ Sending Telegram message to ${chatId}...`);
 
       try {
-        await client.messages.create({
-          from: process.env.TWILIO_WHATSAPP_FROM,
-          to: `whatsapp:${phone}`,
-          body: message,
+        await sendTelegramViaWebhook({
+          chatId,
+          text: message,
         });
 
-        sendLog(`✅ Successfully sent to ${phone}`);
+        sendLog(`✅ Successfully sent to ${chatId}`);
       } catch (err) {
-        sendLog(`❌ Error sending to ${phone}: ${err.message}`);
+        sendLog(`❌ Error sending to ${chatId}: ${err.message}`);
       }
     }
 
@@ -693,6 +727,7 @@ app.get("/send", async (req, res) => {
 
 // =======================================================
 // ROUTE: SEND WEEKLY MENU (SSE)
+// ✅ CHANGED ONLY WHATSAPP SENDING -> TELEGRAM WEBHOOK
 // =======================================================
 app.get("/send-menu", async (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
@@ -725,17 +760,18 @@ app.get("/send-menu", async (req, res) => {
       menu += `• ${day}: ${food}\n`;
     });
 
+    // Column C (index 2) should now contain Telegram chat_id
     const numbers = [...new Set(rows.map((r) => r[2]).filter(Boolean))];
 
     for (const phone of numbers) {
-      sendLog(`➡️ Sending menu to ${phone}...`);
+      const chatId = phone; // ✅ same variable; now treated as Telegram chat_id
+      sendLog(`➡️ Sending menu to ${chatId}...`);
       try {
-        await client.messages.create({
-          from: process.env.TWILIO_WHATSAPP_FROM,
-          to: `whatsapp:${phone}`,
-          body: menu,
+        await sendTelegramViaWebhook({
+          chatId,
+          text: menu,
         });
-        sendLog(`✅ Sent to ${phone}`);
+        sendLog(`✅ Sent to ${chatId}`);
       } catch (err) {
         sendLog(`❌ Failed: ${err.message}`);
       }
