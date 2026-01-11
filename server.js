@@ -2,7 +2,6 @@
 // IMPORT DEPENDENCIES
 // =======================================================
 import express from "express";
-import twilio from "twilio";
 import { google } from "googleapis";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -10,16 +9,14 @@ import bodyParser from "body-parser";
 import path from "path";
 import { fileURLToPath } from "url";
 
+// SUPABASE
+import { createClient } from "@supabase/supabase-js";
+
 dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
-
-// =======================================================
-// TWILIO CONFIGURATION
-// =======================================================
-const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
 // =======================================================
 // GOOGLE SHEETS CONFIGURATION
@@ -33,19 +30,47 @@ const sheets = google.sheets({ version: "v4", auth });
 // =======================================================
 // SUPABASE CONFIGURATION
 // =======================================================
-import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// =======================================================
+// TELEGRAM WEBHOOK CONFIGURATION (n8n)
+// =======================================================
+const TELEGRAM_WEBHOOK_URL =
+  process.env.TELEGRAM_WEBHOOK_URL ||
+  "https://myaidesigntools.app.n8n.cloud/webhook/telegram_trigger";
+
+/**
+ * Sends a message via n8n webhook -> Telegram Bot
+ * n8n should expect JSON:
+ * { chat_id: "...", text: "..." }
+ */
+async function sendTelegramWebhook({ chatId, text }) {
+  const resp = await fetch(TELEGRAM_WEBHOOK_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+    }),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => "");
+    throw new Error(`Webhook failed: ${resp.status} ${resp.statusText} ${errText}`);
+  }
+
+  // Optional: if you want to log webhook response
+  // const data = await resp.json().catch(() => ({}));
+  // return data;
+}
 
 // =======================================================
 // ROUTE: GET STUDENT REPORT STATUS (FROM SUPABASE)
 // =======================================================
 app.get("/student-status", async (req, res) => {
   try {
-    // Fetch the first row from 'Student data storing final' table
-    // Assuming the table has a column named 'message' or similar
-    // We select all columns and take the first row
     const { data, error } = await supabase
       .from("Student data storing final")
       .select("*")
@@ -58,9 +83,9 @@ app.get("/student-status", async (req, res) => {
       return res.json({ message: "⚠️ No data found in Supabase." });
     }
 
-    // Return the entire object or a specific field
-    // Adjust 'message' to the actual column name if needed
-    const statusMessage = data.message || data.status || data.report || JSON.stringify(data);
+    const statusMessage =
+      data.message || data.status || data.report || JSON.stringify(data);
+
     res.json({ message: statusMessage });
   } catch (error) {
     console.error("Supabase Error:", error);
@@ -69,7 +94,7 @@ app.get("/student-status", async (req, res) => {
 });
 
 // =======================================================
-// ROUTE: SEND DAILY REPORTS
+// ROUTE: SEND DAILY REPORTS (Telegram)
 // =======================================================
 app.get("/send", async (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
@@ -80,8 +105,22 @@ app.get("/send", async (req, res) => {
 
   try {
     sendLog("📊 Fetching data from Google Sheet...");
+
     const sheetId = process.env.SHEET_ID;
+
+    /**
+     * EXPECTED SHEET COLUMNS (Daily Report!A2:H)
+     * A: studentName
+     * B: appetite
+     * C: sleeping
+     * D: behaviour
+     * E: mood
+     * F: note
+     * G: telegramChatId   <-- IMPORTANT (replace old phone)
+     * H: messageFromSheet (optional custom message)
+     */
     const range = "Daily Report!A2:H";
+
     const result = await sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
       range,
@@ -90,16 +129,26 @@ app.get("/send", async (req, res) => {
     const rows = result.data.values;
     if (!rows || rows.length === 0) {
       sendLog("⚠️ No data found in Google Sheet.");
+      sendLog("[DONE]");
       return res.end();
     }
 
-    sendLog(`✅ Found ${rows.length} rows. Preparing to send messages...`);
+    sendLog(`✅ Found ${rows.length} rows. Preparing to send Telegram messages...`);
 
     for (const row of rows) {
-      const [studentName, appetite, sleeping, behaviour, mood, note, phone, messageFromSheet] = row;
+      const [
+        studentName,
+        appetite,
+        sleeping,
+        behaviour,
+        mood,
+        note,
+        telegramChatId,
+        messageFromSheet,
+      ] = row;
 
-      if (!phone) {
-        sendLog(`⚠️ Skipping ${studentName || "Unnamed"} (missing phone number)`);
+      if (!telegramChatId) {
+        sendLog(`⚠️ Skipping ${studentName || "Unnamed"} (missing Telegram chat_id)`);
         continue;
       }
 
@@ -119,18 +168,18 @@ Here’s today’s daily report for your little one 🧸💕
 
 Your child had a wonderful day at school today! 💖
 - The Kindergarten Team 🏫✨
-        `;
+        `.trim();
 
-      sendLog(`➡️ Sending message to ${phone} (${studentName || "Unknown"})...`);
+      sendLog(`➡️ Sending Telegram message to chat_id=${telegramChatId} (${studentName || "Unknown"})...`);
+
       try {
-        await client.messages.create({
-          from: process.env.TWILIO_WHATSAPP_FROM,
-          to: `whatsapp:${phone}`,
-          body: messageBody,
+        await sendTelegramWebhook({
+          chatId: telegramChatId,
+          text: messageBody,
         });
-        sendLog(`✅ Message sent successfully to ${phone}`);
+        sendLog(`✅ Message sent successfully to chat_id=${telegramChatId}`);
       } catch (err) {
-        sendLog(`❌ Failed to send to ${phone}: ${err.message}`);
+        sendLog(`❌ Failed to send to chat_id=${telegramChatId}: ${err.message}`);
       }
     }
 
@@ -145,7 +194,7 @@ Your child had a wonderful day at school today! 💖
 });
 
 // =======================================================
-// ROUTE: SEND WEEKLY MENU (ONE MESSAGE TO ALL PARENTS)
+// ROUTE: SEND WEEKLY MENU (ONE MESSAGE TO ALL PARENTS) - Telegram
 // =======================================================
 app.get("/send-menu", async (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
@@ -158,7 +207,15 @@ app.get("/send-menu", async (req, res) => {
     sendLog("🍱 Fetching weekly food menu from Google Sheet...");
 
     const sheetId = process.env.SHEET_ID;
+
+    /**
+     * EXPECTED SHEET COLUMNS (WeeklyMenu!A2:C)
+     * A: day
+     * B: food
+     * C: telegramChatId
+     */
     const range = "WeeklyMenu!A2:C";
+
     const result = await sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
       range,
@@ -168,6 +225,7 @@ app.get("/send-menu", async (req, res) => {
 
     if (!rows || rows.length === 0) {
       sendLog("⚠️ No data found in WeeklyMenu sheet.");
+      sendLog("[DONE]");
       return res.end();
     }
 
@@ -175,28 +233,30 @@ app.get("/send-menu", async (req, res) => {
     let menuTable = "*🍽 Weekly Food Menu 🍽*\n\n";
     menuTable += "📅 *Day* — *Menu*\n";
     menuTable += "──────────────────────\n";
+
     for (const row of rows) {
       const [day, food] = row;
       menuTable += `• ${day || "N/A"} — ${food || "N/A"}\n`;
     }
+
     menuTable += "\nHave a delicious week ahead! 😋\n- Kindergarten Team 🏫✨";
 
-    // Collect unique phone numbers
-    const phones = [...new Set(rows.map((r) => r[2]).filter(Boolean))];
+    // Collect unique Telegram chat IDs (column C)
+    const chatIds = [...new Set(rows.map((r) => r[2]).filter(Boolean))];
 
-    sendLog(`✅ Found ${rows.length} menu rows and ${phones.length} unique phone numbers.`);
+    sendLog(`✅ Found ${rows.length} menu rows and ${chatIds.length} unique Telegram chat IDs.`);
 
-    for (const phone of phones) {
-      sendLog(`➡️ Sending weekly menu to ${phone}...`);
+    for (const chatId of chatIds) {
+      sendLog(`➡️ Sending weekly menu to chat_id=${chatId}...`);
+
       try {
-        await client.messages.create({
-          from: process.env.TWILIO_WHATSAPP_FROM,
-          to: `whatsapp:${phone}`,
-          body: menuTable,
+        await sendTelegramWebhook({
+          chatId,
+          text: menuTable,
         });
-        sendLog(`✅ Menu message sent successfully to ${phone}`);
+        sendLog(`✅ Menu message sent successfully to chat_id=${chatId}`);
       } catch (err) {
-        sendLog(`❌ Failed to send to ${phone}: ${err.message}`);
+        sendLog(`❌ Failed to send to chat_id=${chatId}: ${err.message}`);
       }
     }
 
@@ -209,7 +269,6 @@ app.get("/send-menu", async (req, res) => {
     res.end();
   }
 });
-
 
 // =======================================================
 // SERVE FRONTEND (OPTIONAL BUILD SUPPORT)
@@ -227,7 +286,7 @@ app.get("/", (req, res) => {
 // =======================================================
 // START SERVER
 // =======================================================
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
